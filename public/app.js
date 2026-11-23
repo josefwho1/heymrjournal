@@ -212,7 +212,7 @@ async function unlockWithPassword(pw, vault){
   DEK = await unwrapWith(pw, PW_ITERS, { salt: vault.pw_salt, iv: vault.pw_iv, wrapped: vault.pw_wrapped }, false);
   await keyPut(USER.id, DEK);
 }
-async function goIn(){ await enterJournal(); show(nextAfterIn()); }
+async function goIn(){ store.del('hmj-forgot'); await enterJournal(); show(nextAfterIn()); }
 function nextAfterIn(){ if (pendingReflect && editing && S.entries[editing]) { pendingReflect = false; return 'reflect'; } return Object.keys(S.entries).length ? 'home' : 'welcome'; }
 let pendingReflect = false;
 async function signOut(){ try { await pushNow(); } catch(e){} await keyClear(); await sb.auth.signOut(); SIGNED = false; DEK = null; USER = null; S = { step: 'name', entries: {}, votes: {}, answers: {} }; store.del(ANON_KEY); show('signin'); }
@@ -477,13 +477,13 @@ $('#inForm').onsubmit = async e => { e.preventDefault(); const em = $('#inEmail'
   } catch (err) { toast(errMsg(err)); }
   busy($('#inForm'), false); $('#inGo').textContent = 'Sign in'; };
 async function sendCode(mode){ const em = ($('#inEmail').value || pendingEmail).trim(); if (!/^\S+@\S+\.\S+$/.test(em)) { toast('Enter your email first.'); $('#inEmail').focus(); return; }
-  pendingEmail = em; codeMode = mode;
-  const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: false } });
+  pendingEmail = em; codeMode = mode; if (mode === 'forgot') store.set('hmj-forgot', '1'); else store.del('hmj-forgot');
+  const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: false, emailRedirectTo: location.origin } });
   if (error) { toast(errMsg(error)); return; } show('code'); }
 $('#inCode').onclick = () => sendCode('signin');
 $('#inForgot').onclick = () => sendCode('forgot');
-function renderCode(){ $('#codeSub').textContent = `We’ve sent a 6-digit code to ${pendingEmail}. It can take a minute to arrive.`; $('#codeIn').value = ''; setTimeout(() => $('#codeIn').focus(), 60); }
-$('#codeResend').onclick = async () => { const r = codeMode === 'signup' ? await sb.auth.resend({ type: 'signup', email: pendingEmail }) : await sb.auth.signInWithOtp({ email: pendingEmail, options: { shouldCreateUser: false } }); toast(r.error ? errMsg(r.error) : 'New code sent.'); };
+function renderCode(){ $('#codeSub').textContent = `We’ve emailed ${pendingEmail}. Click the link in it, or type the 6-digit code if there is one. It can take a minute to arrive.`; $('#codeIn').value = ''; setTimeout(() => $('#codeIn').focus(), 60); }
+$('#codeResend').onclick = async () => { const r = codeMode === 'signup' ? await sb.auth.resend({ type: 'signup', email: pendingEmail }) : await sb.auth.signInWithOtp({ email: pendingEmail, options: { shouldCreateUser: false, emailRedirectTo: location.origin } }); toast(r.error ? errMsg(r.error) : 'New code sent.'); };
 $('#codeForm').onsubmit = async e => { e.preventDefault(); const token = $('#codeIn').value.replace(/\D/g, ''); if (token.length < 6) return;
   busy($('#codeForm'), true);
   try { const { data, error } = await sb.auth.verifyOtp({ email: pendingEmail, token, type: codeMode === 'signup' ? 'signup' : 'email' }); if (error) throw error;
@@ -591,8 +591,8 @@ function bootLocal(){
     if (data && data.session) {
       const vault = await afterAuth(data.session);
       const k = vault ? await keyGet(USER.id) : null;
-      if (vault && k) { DEK = k; await enterJournal(); editing = null; bootLocal(); return; }
-      if (vault) { ulMode = 'pw'; show('unlock'); return; }
+      if (vault && k && !store.get('hmj-forgot')) { DEK = k; await enterJournal(); editing = null; bootLocal(); return; }
+      if (vault) { ulMode = store.get('hmj-forgot') ? 'rc' : 'pw'; store.del('hmj-forgot'); show('unlock'); return; }
       await sb.auth.signOut();
     }
   } catch (err) { console.warn('boot', err && err.message); }
