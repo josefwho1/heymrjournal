@@ -26,9 +26,13 @@ export default async (req) => {
   const user = await who.json();
   const email = String(user.email || '').toLowerCase();
 
-  // 2. closed pilot: only invited emails (ALLOWED_EMAILS = comma-separated list; leave unset to allow every signed-in user)
+  // 2. closed pilot: only people who joined with an invite code (or are listed in ALLOWED_EMAILS, e.g. you)
   const allow = (process.env.ALLOWED_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  if (allow.length && !allow.includes(email)) return json({ error: 'not_invited' }, 403);
+  if (!allow.includes(email)) {
+    const m = await fetch(`${SUPABASE_URL}/rest/v1/members?select=user_id&limit=1`, { headers: { authorization: auth, apikey: SUPABASE_KEY } });
+    const rows = m.ok ? await m.json() : [];
+    if (!Array.isArray(rows) || !rows.length) return json({ error: 'not_invited' }, 403);
+  }
 
   // 3. the request
   let body; try { body = await req.json(); } catch { return json({ error: 'bad_request' }, 400); }

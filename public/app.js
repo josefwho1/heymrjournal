@@ -87,6 +87,7 @@ const PMAP = Object.fromEntries(PROMPTS.map(p => [p[0], p]));
 // Before an account exists, S lives in this browser's localStorage only.
 // After sign-up, S is encrypted in the browser (AES-GCM, key never leaves the device) and only the ciphertext is saved online.
 const ANON_KEY = 'hmj-draft';
+try { const iv = new URLSearchParams(location.search).get('invite'); if (iv) { localStorage.setItem('hmj-invite', iv.toUpperCase()); history.replaceState(null, '', location.pathname); } } catch(e){}
 let S = loadAnon() || { step: 'name', entries: {}, votes: {}, answers: {} };
 function loadAnon(){ try { return JSON.parse(store.get(ANON_KEY) || 'null'); } catch(e) { return null; } }
 let SIGNED = false, DEK = null, USER = null;
@@ -187,12 +188,14 @@ async function afterAuth(session){
   const { data: vault } = await sb.from('vaults').select('*').eq('user_id', USER.id).maybeSingle();
   return vault;
 }
-async function createAccount(email, pw){
+async function createAccount(email, pw, invite){
+  const { data: ok, error: ie } = await sb.rpc('check_invite', { p_code: invite });
+  if (ie) throw ie; if (!ok) throw new Error('That invite code isn’t valid or has been used up.');
   const ap = await authPw(email, pw);
   const dek0 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   const rc = newRecoveryCode();
   const pwBox = await wrapWith(pw, PW_ITERS, dek0), rcBox = await wrapWith(normRc(rc), RC_ITERS, dek0);
-  pendingSignup = { pwBox, rcBox, rc, pw, email };
+  pendingSignup = { pwBox, rcBox, rc, pw, email, invite };
   const { data, error } = await sb.auth.signUp({ email, password: ap });
   if (error) throw error;
   if (data.session) return finishSignup(data.session);
@@ -203,6 +206,7 @@ async function finishSignup(session){
   USER = session.user; const p = pendingSignup;
   const { error } = await sb.from('vaults').upsert({ user_id: USER.id, pw_salt: p.pwBox.salt, pw_iv: p.pwBox.iv, pw_wrapped: p.pwBox.wrapped, rc_salt: p.rcBox.salt, rc_iv: p.rcBox.iv, rc_wrapped: p.rcBox.wrapped });
   if (error) throw error;
+  if (p.invite) { try { await sb.rpc('redeem_invite', { p_code: p.invite }); store.del('hmj-invite'); } catch(e){} }
   DEK = await unwrapWith(p.pw, PW_ITERS, { salt: p.pwBox.salt, iv: p.pwBox.iv, wrapped: p.pwBox.wrapped }, false);
   await keyPut(USER.id, DEK);
   await enterJournal(); syncProfile(); Object.keys(S.entries).forEach(syncStats); Object.entries(S.votes || {}).forEach(([k, v]) => voteRow(k, v.v));
@@ -227,7 +231,7 @@ function show(name){
   $('#outBtn').hidden = !SIGNED;
   $('#brandName').textContent = 'Mr Journal';
   window.scrollTo({ top: 0 });
-  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, account: () => setTimeout(() => $('#email').focus(), 60), signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
+  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
 
 /* 1 · name */
@@ -449,6 +453,8 @@ async function reflect(){
     e.reflection = { summary, insights: ins, patterns: pat, questions: qs, question: qs[0] || '', text: [summary].concat(ins, pat).join('\n'), len: text.length, at: Date.now() };
     syncEntry(editing); if (cur === 'reflect') paint(e.reflection);
   } catch (err) {
+    if (err && err.code === 'not_invited') { $('#rBody').innerHTML = `<p class="wait">Reflections are for pilot members. Enter your invite code to unlock them.</p><form id="joinForm" class="row"><input class="field" id="joinIn" placeholder="Invite code" autocapitalize="characters" style="max-width:240px;margin:0"><button class="btn pen" type="submit">Join</button></form>`;
+      $('#joinForm').onsubmit = async ev => { ev.preventDefault(); const { data } = await sb.rpc('redeem_invite', { p_code: $('#joinIn').value }); if (data) { toast('You’re in.'); reflect(); } else toast('That code isn’t valid or has been used up.'); }; return; }
     $('#rBody').innerHTML = `<p class="wait">${err && err.code === 'not_invited' ? 'Reflections are open to pilot testers only. Ask Josef to add your email.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your entry is safe; try again in a minute.' : 'I couldn’t reflect on this just now. Your entry is safe.'}</p>`;
   }
 }
@@ -461,8 +467,9 @@ const errMsg = err => { const m = (err && (err.message || err.msg)) || ''; if (/
 $('#accForm').onsubmit = async e => { e.preventDefault(); const em = $('#email').value.trim(), pw = $('#pw').value;
   if (!/^\S+@\S+\.\S+$/.test(em)) { toast('That email doesn’t look right.'); return; }
   if (pw.length < 10) { toast('Use at least 10 characters.'); return; }
+  const inv = $('#invite').value.trim().toUpperCase(); if (!inv) { toast('Enter your invite code.'); return; }
   busy($('#accForm'), true); $('#accGo').textContent = 'Locking it in…';
-  try { await createAccount(em, pw); } catch (err) { toast(errMsg(err)); }
+  try { await createAccount(em, pw, inv); } catch (err) { toast(errMsg(err)); }
   busy($('#accForm'), false); $('#accGo').textContent = 'Create account'; };
 $('#rcCopy').onclick = async () => { try { await navigator.clipboard.writeText($('#rcode').textContent); toast('Copied.'); } catch(e) { toast('Select the code and copy it.'); } };
 $('#rcSave').onclick = () => { const t = `Mr Journal recovery code\n\n${$('#rcode').textContent}\n\nAccount: ${USER ? USER.email : ''}\nKeep this safe. It is the only way back into your journal if you forget your password.\nheymrjournal.com\n`; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain' })); a.download = 'mr-journal-recovery-code.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };

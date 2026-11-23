@@ -259,6 +259,8 @@ h1 em{font-style:italic;color:var(--pen)}
     <form id="accForm" autocomplete="on">
       <label class="flab" for="email">Email</label>
       <input class="field" id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label class="flab" for="invite">Invite code</label>
+      <input class="field" id="invite" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="From your invite" required>
       <label class="flab" for="pw">Password</label>
       <input class="field" id="pw" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters" required>
       <div class="row"><button class="btn pen" id="accGo" type="submit">Create account</button><button class="btn ghost" type="button" data-go="signin">I already have an account</button></div>

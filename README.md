@@ -11,13 +11,13 @@ heymrjournal.com: a 30-day journal with Mr Journal, a mirror that reflects back 
 - **Trade-off**: lose both password and recovery code, and the journal is unrecoverable. That's by design.
 
 ## Setup
-1. **Supabase → SQL Editor**: run `supabase/schema.sql`.
+1. **Supabase → SQL Editor**: run `supabase/schema.sql`, then `supabase/invites.sql`.
 2. **Supabase → Authentication → Sign In / Providers → Email**: turn **Confirm email** off for the pilot (or keep it on and add `{{ .Token }}` to the "Confirm signup" template).
 3. **Supabase → Authentication → Emails → Magic Link** template: make sure it contains `{{ .Token }}` (the 6-digit code), e.g. `Your Mr Journal code is {{ .Token }}`.
 4. **Supabase → Authentication → URL Configuration**: Site URL `https://heymrjournal.com`.
 5. **Netlify**: import this repo. Environment variables:
    - `ANTHROPIC_API_KEY` (required, secret)
-   - `ALLOWED_EMAILS`: comma-separated pilot emails (optional; unset = any signed-in user can get reflections)
+   - `ALLOWED_EMAILS`: optional: emails that get reflections without an invite code (e.g. yours)
    - `OWNER_EMAIL`: your email, so Mr Journal uses your personal threads on your account only (optional)
    - `MODEL`: defaults to `claude-sonnet-5-5`
 6. **Domain**: add heymrjournal.com in Netlify, then set Namecheap nameservers to the ones Netlify gives you.
@@ -25,3 +25,10 @@ heymrjournal.com: a 30-day journal with Mr Journal, a mirror that reflects back 
 
 ## Data for you
 Supabase → Table Editor → `question_report`: answers, average and max words per question.
+
+## Invites
+Testers join with an invite code on the sign-up screen, or via a link that fills it in: `https://heymrjournal.com/?invite=MOUSTACHE`.
+- New code: Table Editor → `invite_codes` → Insert row (code in CAPITALS, `max_uses`, a note).
+- Switch one off: untick `active`.
+- Who joined: Table Editor → `member_report`.
+Reflections only work for members, so the Claude API can't be used by strangers.
