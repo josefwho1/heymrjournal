@@ -317,6 +317,22 @@ function renderReflect(){
 }
 // Mr Journal's persona (the TherAIpist brief) lives on the server, so it is added to every request there.
 function paint(r){
+  if (r.summary !== undefined) {
+    const more = (r.deeper || []).map(d => `<div class="deep"><p>${esc(d.text)}</p>${d.question ? `<p class="rq">${esc(d.question)}</p>` : ''}</div>`).join('');
+    const canGo = r.question && (r.deeper || []).length < 3 && !(r.deeper || []).some(d => !d.question);
+    const secs = [['summary', 'Summary', r.summary ? `<p>${esc(r.summary)}</p>` : ''],
+      ['insights', 'Insights', (r.insights || []).length ? `<ul>${r.insights.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''],
+      ['patterns', 'Patterns', (r.patterns || []).length ? `<ul>${r.patterns.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">Patterns show up once you’ve written a few entries.</p>`],
+      ['questions', 'Questions', (r.questions || []).length ? `<ol class="qs">${r.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol>` : '']].filter(x => x[2]);
+    if (!(r.insights || []).length && !(r.questions || []).length) secs.splice(1); // safety reply: summary only
+    $('#rBody').innerHTML = `<nav class="rnav" aria-label="Reflection sections">${secs.map(([k, l]) => `<a href="#rs-${k}" data-k="${k}">${l}</a>`).join('')}</nav>`
+      + secs.map(([k, l, h]) => `<section class="rsec rs-${k}" id="rs-${k}"><h3>${l}</h3>${h}</section>`).join('')
+      + (more || canGo ? `<section class="rsec rs-deeper">${more ? '<h3>Going deeper</h3>' : ''}${more}${canGo ? `<button class="btn ghost deepbtn" id="goDeeper" type="button">Go deeper ↓</button>` : ''}</section>` : '')
+      + `<section class="rsec rs-convo">${convoHTML()}</section>`;
+    $('#rBody').querySelectorAll('.rnav a').forEach(a => a.onclick = ev => { ev.preventDefault(); document.getElementById('rs-' + a.dataset.k).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    if ($('#goDeeper')) $('#goDeeper').onclick = goDeeper;
+    wireReply();
+    return; }
   if (r.text) {
     const more = (r.deeper || []).map(d => `<div class="deep"><p>${esc(d.text)}</p>${d.question ? `<p class="rq">${esc(d.question)}</p>` : ''}</div>`).join('');
     const canGo = SAMPLE && r.question && (r.deeper || []).length < 3 && !(r.deeper || []).some(d => !d.question);
@@ -352,7 +368,7 @@ async function sendReply(){
   const said = [{ text: r.text, questions: r.questions || (r.question ? [r.question] : []) }].concat(r.deeper || []);
   const past = Object.entries(S.entries).filter(([d, x]) => d < editing && totalWords(x) > 0).sort().slice(-14).map(([d, x]) => ({ date: d, text: entryFull(x).slice(0, 700) }));
   const prompt = [
-    'THE WRITER IS REPLYING TO YOU about today\u2019s entry. This is a conversation now, so be shorter than a reflection: usually 1 to 4 sentences. Reflect what they just said, connect it to the entry or earlier entries where it genuinely helps, and push back if their reply earns it. If they ask for advice or your opinion, follow your instructions for that. End with at most one open question, or none if a question would feel forced.',
+    'THE WRITER IS REPLYING TO YOU about today\u2019s entry. This is a conversation now, so be brief: usually 1 to 3 short sentences. Reflect what they just said, connect it to the entry or earlier entries where it genuinely helps, and push back if their reply earns it. If they ask for advice or your opinion, follow your instructions for that. End with at most one open question, or none if a question would feel forced.',
     `- The writer's name is ${S.name}. Numbers: ${JSON.stringify(runStats())}`,
     past.length ? `- Earlier entries (cite by date): ${JSON.stringify(past)}` : '- There are no earlier entries yet.',
     `TODAY'S ENTRY (${editing}):`, '<<<', entryText(e).slice(0, 6000), '>>>',
@@ -383,11 +399,11 @@ async function goDeeper(){
   const e = S.entries[editing], r = e.reflection, btn = $('#goDeeper'); if (!r || !SAMPLE) return;
   btn.disabled = true; btn.textContent = 'Thinking…';
   const past = Object.entries(S.entries).filter(([d, x]) => d < editing && totalWords(x) > 0).sort().slice(-30).map(([d, x]) => ({ date: d, text: entryFull(x).slice(0, 900) }));
-  const said = [{ text: r.text, question: r.question }].concat(r.deeper || []);
+  const said = [{ text: r.text, questions: r.questions }].concat(r.deeper || []);
   const prompt = [
     'THE WRITER HAS ASKED YOU TO GO DEEPER on today\u2019s entry.',
     'Offer one further layer that you have not already said: a pattern across their entries (only if it appears in at least three entries, cited by date), a contradiction or shift in their own words, or a closer look at a phrase from today. Stay a mirror: no advice, no interpretation of motives, no labels; honest pushback is welcome where his writing earns it. Then one open question that goes a level further than the ones already asked.',
-    'This reply may be longer than their entry, but keep it to 2 to 4 sentences plus the question.',
+    'Keep it to 2 or 3 short sentences plus the question.',
     `- The writer's name is ${S.name}. Numbers: ${JSON.stringify(runStats())}`,
     past.length ? `- Earlier entries (cite by date): ${JSON.stringify(past)}` : '- There are no earlier entries yet, so work only with today\u2019s words and do not claim a pattern.',
     '- What you have already said today (do not repeat it): ' + JSON.stringify(said),
@@ -418,12 +434,19 @@ async function reflect(){
     '',
     `TODAY'S ENTRY (${editing}):`, '<<<', text.slice(0, 7000), '>>>',
     '',
-    'Return ONLY JSON: {"text":"your reflection in conversational prose, without the closing questions","questions":["one to three open questions; an empty list if you have stepped out of the mirror for safety"]}'
+    'FORMAT FOR THIS REFLECTION: keep it short and scannable. It is shown in four separate sections, so put each thing in its section and do not repeat yourself across sections.',
+    '- summary: one or two plain sentences reflecting the core of what they wrote, using a short phrase of theirs where it fits.',
+    '- insights: one to three short points (each under 25 words) on what stands out today: a tension, a shift, something they saw clearly, honest pushback if earned.',
+    '- patterns: zero to two short points (each under 30 words) linking today to earlier entries, citing dates. Only a pattern that appears in at least three entries. If there is none yet, return an empty list. Never invent one.',
+    '- questions: one to three short open questions.',
+    'Return ONLY JSON: {"summary":"…","insights":["…"],"patterns":["…"],"questions":["…"]}. If you have stepped out of the mirror for safety, put your whole response in summary and leave the lists empty.'
   ].join('\n');
   try {
     const r = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
-    const qs = (Array.isArray(r.questions) ? r.questions : (r.question ? [r.question] : [])).map(q => String(q).slice(0, 300)).filter(Boolean).slice(0, 3);
-    e.reflection = { text: String(r.text || '').slice(0, 2000), question: qs[0] || '', questions: qs, len: text.length, at: Date.now() };
+    const list = (x, n, l) => (Array.isArray(x) ? x : []).map(v => String(v).trim().slice(0, l)).filter(Boolean).slice(0, n);
+    const qs = list(r.questions, 3, 300), ins = list(r.insights, 3, 400), pat = list(r.patterns, 2, 400);
+    const summary = String(r.summary || r.text || '').slice(0, 900);
+    e.reflection = { summary, insights: ins, patterns: pat, questions: qs, question: qs[0] || '', text: [summary].concat(ins, pat).join('\n'), len: text.length, at: Date.now() };
     syncEntry(editing); if (cur === 'reflect') paint(e.reflection);
   } catch (err) {
     $('#rBody').innerHTML = `<p class="wait">${err && err.code === 'not_invited' ? 'Reflections are open to pilot testers only. Ask Josef to add your email.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your entry is safe; try again in a minute.' : 'I couldn’t reflect on this just now. Your entry is safe.'}</p>`;
