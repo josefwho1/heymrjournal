@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mr Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+<style>
+/* Ink on paper: one column, the page is the notebook; fountain-pen blue is the only accent. */
+:root{
+  --paper:#eef0ec; --sheet:#f8f9f6; --ink:#16191c; --ink-2:#4a5057; --ink-3:#848a90; --rule:#d9ddd6;
+  --pen:#16191c; --pen-soft:#16191c12; --good:#1f8a4c; --miss:#c2483a; --act:#16191c; --act-ink:#f8f9f6;
+  --display:"Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --write:"Newsreader", "Iowan Old Style", Georgia, serif;
+  --ui:"Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --brand:"Gotham", "Gotham SSm", "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --ask:"Newsreader", "Iowan Old Style", Georgia, serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#101215; --sheet:#171a1e; --ink:#ebe9e3; --ink-2:#b4b6b8; --ink-3:#7c8187; --rule:#2a2e33;
+  --pen:#ebe9e3; --pen-soft:#ebe9e31a; --good:#5cc489; --miss:#e8806f; --act:#ebe9e3; --act-ink:#101215; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --paper:#101215; --sheet:#171a1e; --ink:#ebe9e3; --ink-2:#b4b6b8; --ink-3:#7c8187; --rule:#2a2e33;
+  --pen:#ebe9e3; --pen-soft:#ebe9e31a; --good:#5cc489; --miss:#e8806f; --act:#ebe9e3; --act-ink:#101215; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font:16px/1.55 var(--ui);-webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top,0px) max(16px, env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(16px, env(safe-area-inset-left,0px))}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--pen);outline-offset:3px}
+.wrap{max-width:680px;margin:0 auto;padding:40px 0 120px}
+.screen{display:none}
+.screen.on{display:block;animation:rise .45s ease both}
+@keyframes rise{from{opacity:.0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.screen.on{animation:none}.screen.on .mr svg{animation:none}.line2 u::after{transition:none!important}}
+.brand{font:700 19px var(--brand);letter-spacing:-.01em;text-transform:none;align-items:center;color:var(--ink-3);display:flex;align-items:center;gap:10px;margin-bottom:56px}
+.brand i{width:8px;height:8px;border-radius:50%;background:var(--pen);display:inline-block}
+.brand .sp{flex:1}
+.logo{display:inline-flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink);border:0;background:none;padding:4px 2px;cursor:pointer}
+.logo-mr{display:block;width:60px;height:18px}
+.brand .logo{color:var(--ink);font:inherit;letter-spacing:inherit}
+.logo-mr svg{width:100%;height:100%;fill:currentColor;display:block}
+.logo #brandName{font:700 15px/1 var(--brand);letter-spacing:-.01em;color:var(--ink)}
+.says{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:var(--ink)}
+.mr{display:inline-block;width:46px;height:14px;flex:none;color:var(--ink)}
+.mr svg{width:100%;height:100%;fill:currentColor;display:block;transform-origin:50% 45%}
+.screen.on .mr svg{animation:twitch 1.6s ease .35s 1}
+@keyframes twitch{0%,100%{transform:none}30%{transform:rotate(-4deg) scaleX(1.04)}55%{transform:rotate(3deg)}75%{transform:rotate(-1deg)}}
+.says .who{font:700 12.5px var(--brand);color:var(--ink-2);letter-spacing:.02em}
+.pblock .says{margin-bottom:10px}
+.themebtn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;margin-right:10px;color:var(--ink)!important;padding:0!important}
+.themebtn:hover{background:var(--rule)}
+.themebtn svg{width:20px;height:20px}
+.brand button{border:0;background:none;color:var(--ink-3);font:500 12px var(--ui);letter-spacing:.04em;text-transform:none;padding:4px 0}
+h1{font:500 clamp(32px,6.4vw,46px)/1.12 var(--ask);margin:0 0 16px;letter-spacing:-.015em;text-wrap:balance}
+h1 em{font-style:italic;color:var(--pen)}
+.lede{font-size:17px;color:var(--ink-2);max-width:52ch;margin:0 0 32px}
+.btn{border:0;border-radius:999px;padding:13px 22px;font-weight:600;font-size:15px;background:var(--ink);color:var(--paper);display:inline-flex;align-items:center;gap:8px}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.ghost{background:none;color:var(--ink-2);padding:13px 6px}
+.btn.pen{background:var(--act);color:var(--act-ink)}
+.btn.wide{width:100%;justify-content:center;margin-top:16px;padding:16px 22px;font-size:16px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--ink-3)}
+/* name */
+.nameIn{width:100%;border:0;border-bottom:2px solid var(--rule);background:transparent;font:400 clamp(36px,7vw,56px)/1.2 var(--display);color:var(--ink);padding:6px 0 10px;margin:8px 0 28px;outline:none}
+.nameIn:focus,.nameIn:focus-visible{border-bottom-color:var(--pen);outline:none}
+.nameIn::placeholder{color:var(--ink-3);opacity:.6}
+/* welcome thesis */
+.thesis{font:400 clamp(44px,9vw,76px)/1.05 var(--display);margin:0 0 30px;letter-spacing:-.015em}
+.thesis span{display:block}
+.quote{font:italic 400 clamp(30px,5.4vw,46px)/1.15 var(--ask);margin:0 0 14px;letter-spacing:-.01em}
+.quote cite{display:block;font:500 13px/1 var(--brand);font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin-top:14px}
+.tagline{font:700 15px/1.3 var(--brand);margin:0 0 30px;color:var(--ink)}
+.meet{border-top:1px solid var(--line,rgba(127,127,127,.25));padding-top:22px;margin-bottom:24px}
+.meet h2{font:500 24px/1.2 var(--ask);margin:0 0 10px}
+.meet p{margin:0 0 10px;line-height:1.55;color:var(--ink-2)}
+.meet p b{color:var(--ink);font-weight:600}
+.lock{display:block;margin:0 0 18px}
+.thesis .line1{font-style:italic;color:var(--ink-2)}
+.line2 u{text-decoration:none;position:relative;white-space:nowrap}
+.line2 u::after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.07em;background:var(--pen);transform:scaleX(0);transform-origin:left;transition:transform 1.1s cubic-bezier(.2,.7,.2,1) .5s}
+.screen.on .line2 u::after{transform:scaleX(1)}
+/* compose */
+.cbar{position:sticky;top:0;z-index:5;background:var(--paper);display:flex;align-items:center;gap:14px;padding:12px 0;margin:-12px 0 18px;border-bottom:1px solid var(--rule);font:500 13px var(--ui);color:var(--ink-3)}
+.cbar .date{color:var(--ink);font-weight:600}
+.clock{font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:6px}
+.clock i{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.clock.run i{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent)}
+.cbar .sp{flex:1}
+.blocks{display:flex;flex-direction:column;gap:14px}
+.pblock .prompt{font:500 24px/1.3 var(--ask);letter-spacing:-.005em;color:var(--pen);margin:0 0 8px;text-wrap:balance;flex:1}
+.phead{display:flex;gap:10px;align-items:flex-start}
+.px{flex:none;border:0;background:none;color:var(--ink-3);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;margin-top:2px}
+.px:hover{background:var(--rule);color:var(--ink)}
+.px svg{width:16px;height:16px}
+.pblock.free{border-top:1px dashed var(--rule);padding-top:18px}
+.pblock.free:first-child{border-top:0;padding-top:0}
+.pacts button.ic{padding:6px 9px}
+.pacts .pn{color:var(--pen);border-color:color-mix(in srgb, var(--pen) 40%, var(--rule))}
+.pacts{display:flex;gap:4px;margin:0 0 10px}
+.pacts button{border:1px solid var(--rule);background:var(--sheet);border-radius:999px;padding:5px 11px;font-size:13px;color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.pacts button:hover{border-color:var(--ink-3);color:var(--ink)}
+.pacts button.on{border-color:var(--pen);color:var(--pen);background:var(--pen-soft)}
+.pacts svg{width:14px;height:14px}
+.wr{width:100%;min-height:1.7em;outline:none;color:var(--ink);font:400 19px/1.7 var(--write);padding:0;white-space:pre-wrap;word-wrap:break-word;cursor:text}
+.pblock:last-child .wr{min-height:140px}
+.wr:empty:before{content:attr(data-placeholder);color:var(--ink-3);pointer-events:none}
+.wr b{font-weight:600}
+.fmt{display:inline-flex;gap:2px}
+.fmtbtn{width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--ink-2);font:16px var(--write);cursor:pointer;padding:0}
+.fmtbtn:hover{background:var(--rule);color:var(--ink)}
+.cfoot{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:12px max(16px, env(safe-area-inset-left,0px)) calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent, var(--paper) 30%)}
+.cfoot .in{max-width:680px;margin:0 auto;display:flex;gap:10px;justify-content:flex-end}
+/* reflection */
+.entryRead{background:var(--sheet);border-radius:16px;padding:22px 24px;margin:0 0 26px;font:400 17px/1.65 var(--write);color:var(--ink-2);max-height:260px;overflow:auto}
+.entryRead .eq{display:block;font:500 17px var(--ask);color:var(--pen);margin-top:10px}
+.entryRead .eq:first-child{margin-top:0}
+.refl{border-left:2px solid var(--pen);padding:2px 0 2px 20px;margin:0 0 30px}
+.refl .lab{font:600 11px var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:18px 0 6px}
+.refl .lab:first-child{margin-top:0}
+.refl p{margin:0;font:400 18px/1.6 var(--write)}
+.refl ul{margin:0;padding-left:18px;font:400 18px/1.6 var(--write)}
+.refl li{margin-bottom:6px}
+.cv{margin-top:20px}
+.cv p{margin:0;font:400 18px/1.6 var(--write)}
+.cv.me{background:var(--sheet);border-radius:14px;padding:12px 16px;margin-left:24px}
+.cv.me p{color:var(--ink-2);font-size:17px}
+.cvl{display:block;font:600 11px var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px}
+.cvwait{margin-top:16px}
+.replybox{margin-top:24px;padding-top:18px;border-top:1px solid var(--rule)}
+.replybox textarea{width:100%;border:1px solid var(--rule);background:var(--sheet);border-radius:12px;padding:12px 14px;font:400 17px/1.55 var(--write);color:var(--ink);resize:none;overflow:hidden;margin:4px 0 10px}
+.replybox textarea:focus{border-color:var(--pen);outline:none}
+.deep{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule)}
+.deep p{margin:0;font:400 18px/1.6 var(--write)}
+.deepbtn{margin-top:18px;padding:8px 0;color:var(--pen)}
+.refl p + p{margin-top:12px}
+.refl .rq{margin-top:12px;font:500 19px/1.45 var(--ask);color:var(--pen)}
+.refl .wait{font:italic 18px var(--write);color:var(--ink-3)}
+/* choices */
+.opts{display:flex;flex-direction:column;gap:8px;margin:0 0 26px}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;width:100%;border:1px solid var(--rule);background:var(--sheet);border-radius:14px;padding:14px 16px;font-size:16px}
+.opt:hover{border-color:var(--ink-3)}
+.opt.on{border-color:var(--pen);background:var(--pen-soft)}
+.opt .tick{margin-left:auto;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--rule);flex:none}
+.opt.on .tick{background:var(--pen);border-color:var(--pen);box-shadow:inset 0 0 0 3px var(--sheet)}
+.steps{display:flex;gap:6px;margin:0 0 28px}
+.steps i{height:3px;flex:1;border-radius:2px;background:var(--rule)}
+.steps i.on{background:var(--pen)}
+.field{width:100%;border:1px solid var(--rule);background:var(--sheet);border-radius:12px;padding:14px 16px;font:inherit;font-size:17px;color:var(--ink);margin:0 0 14px}
+.field:focus{border-color:var(--pen);outline:none}
+.note{font-size:12.5px;color:var(--ink-3);margin-top:14px;max-width:56ch}
+/* home */
+.hhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 6px}
+.hhead h1{margin:0}
+.day{font:600 12px var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--pen)}
+.grid30{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:8px;width:100%}
+.calcard{margin-top:24px}
+.sq{aspect-ratio:1;border-radius:10px;max-height:52px;background:var(--rule);border:0;font:600 11px var(--ui);color:var(--ink-3);display:grid;place-items:center;padding:0}
+.sq.ok{background:var(--good);color:#fff}
+.sq.miss{background:color-mix(in srgb, var(--miss) 20%, var(--sheet));color:var(--miss)}
+.sq.fut{opacity:.55;cursor:default}
+.sq.now{outline:2px solid var(--ink);outline-offset:2px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 0;width:100%}
+.tile{background:var(--sheet);border-radius:18px;padding:16px 16px}
+.tile b{display:block;white-space:nowrap;font:500 clamp(20px,5.6vw,26px)/1.15 var(--ask);font-variant-numeric:tabular-nums}
+.tile span{font-size:12.5px;color:var(--ink-3)}
+.card{background:var(--sheet);border-radius:18px;padding:22px 24px;margin:16px 0 0}
+.card h2{font:500 22px/1.25 var(--ask);margin:0 0 6px}
+.card .q{font:500 21px/1.4 var(--ask);color:var(--ink);margin:6px 0 14px}
+.elist{display:flex;flex-direction:column}
+.erow{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:baseline;text-align:left;border:0;border-top:1px solid var(--rule);background:none;padding:12px 0}
+.erow .d{font:600 13px var(--ui);color:var(--ink-2)}
+.erow .t{font:400 16px/1.4 var(--write);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.erow .w{font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.banner{font-size:13px;color:var(--ink-2);background:var(--sheet);border-radius:12px;padding:10px 14px;margin:0 0 22px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (max-width:420px){.erow{grid-template-columns:76px 1fr}.erow .w{display:none}.pblock .prompt{font-size:24px}}
+.flab{display:block;font-size:13px;color:var(--ink-2);margin:4px 0 6px}
+.links{display:flex;flex-wrap:wrap;gap:18px;margin-top:22px}
+.link{background:none;border:0;padding:0;font:inherit;font-size:13px;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.link:hover{color:var(--ink)}
+.rcode{font:600 clamp(18px,3.4vw,26px)/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;background:var(--sheet);border-radius:14px;padding:18px 20px;margin:6px 0 14px;word-break:break-all;user-select:all}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink-2);margin:20px 0 4px;cursor:pointer}
+.field.code{font:600 24px/1 ui-monospace,Menlo,monospace;letter-spacing:.3em;max-width:240px}
+.busy{opacity:.6;pointer-events:none}
+#outBtn{background:none;border:0;font:inherit;font-size:12px;color:var(--ink-3);cursor:pointer;margin-left:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><button class="logo" id="logoBtn" type="button" aria-label="Mr Journal, go to home"><span class="logo-mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span><span id="brandName">Mr Journal</span></button><span class="sp"></span><button class="themebtn" id="themeBtn" type="button" aria-label="Switch to light mode"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button><button id="outBtn" type="button" hidden>Sign out</button></div>
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- 1 · name -->
+  <section class="screen" id="s-name">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1 id="greet">Good evening. What's your name?</h1>
+    <form id="nameForm"><input class="nameIn" id="nameIn" autocomplete="given-name" placeholder="Your first name" aria-label="Your first name" maxlength="40">
+    <div class="row"><button class="btn" id="nameGo" type="submit" disabled>Continue</button><span class="hint">No account needed to start. <button class="link" type="button" data-go="signin">Sign in</button></span></div></form>
+  </section>
+
+  <!-- 2 · welcome -->
+  <section class="screen" id="s-welcome">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <p class="lede" id="hello" style="margin:-6px 0 18px"></p>
+    <blockquote class="quote">“I write entirely to find out what I’m thinking.”<cite>Joan Didion</cite></blockquote>
+    <p class="tagline">Helping you read between the lines.</p>
+    <div class="meet">
+      <h2>Meet Mr Journal.</h2>
+      <p>He’s a mirror, not a coach. He reads what you write and reflects it back: the patterns, the threads, the thing you’ve said three times without noticing.</p>
+      <p>He’ll never tell you what to do, what to think, or how to think. He’ll just ask a question, so you can go a little deeper.</p>
+      <p><b>You write. He helps you read between the lines.</b></p>
+    </div>
+    <p class="hint lock">🔒 Your entries are private. Not even we can read them.</p>
+    <button class="btn pen" id="startFirst" type="button">Write my first entry</button>
+  </section>
+
+  <!-- 3 · compose -->
+  <section class="screen" id="s-compose">
+    <div class="cbar"><span class="date" id="cDate"></span><span class="clock" id="clock" title="Writing time. Pauses when you stop typing for a minute."><i></i><span id="clockT">0:00</span></span><span class="sp"></span><span class="fmt" aria-label="Formatting"><button class="fmtbtn" type="button" data-cmd="bold" title="Bold (⌘B)" aria-label="Bold"><b>B</b></button><button class="fmtbtn" type="button" data-cmd="italic" title="Italic (⌘I)" aria-label="Italic"><i>I</i></button><button class="fmtbtn" type="button" data-cmd="underline" title="Underline (⌘U)" aria-label="Underline"><u>U</u></button></span><span id="cWords">0 words</span></div>
+    <div class="blocks" id="blocks"></div>
+  </section>
+
+  <!-- 4 · reflection -->
+  <section class="screen" id="s-reflect">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1 id="rTitle">Here's what I noticed.</h1>
+    <div class="entryRead" id="rEntry"></div>
+    <div class="refl" id="rBody"></div>
+    <div class="row"><button class="btn pen" id="rNext" type="button">Keep this entry</button><button class="btn ghost" id="rBack" type="button">Back to writing</button></div>
+  </section>
+
+  <!-- 5 · create account -->
+  <section class="screen" id="s-account">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1>Lock it in.</h1>
+    <p class="lede">Create your account and Mr Journal will read what you wrote. Your journal is encrypted in this browser with your password before it's saved. We never see your password, so we can never read your entries.</p>
+    <form id="accForm" autocomplete="on">
+      <label class="flab" for="email">Email</label>
+      <input class="field" id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label class="flab" for="pw">Password</label>
+      <input class="field" id="pw" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters" required>
+      <div class="row"><button class="btn pen" id="accGo" type="submit">Create account</button><button class="btn ghost" type="button" data-go="signin">I already have an account</button></div>
+    </form>
+    <p class="note">Pick something you'll remember. Because we can't read your journal, we can't reset it for you. You'll get a recovery code next, just in case.</p>
+  </section>
+
+  <!-- 5b · recovery code -->
+  <section class="screen" id="s-recovery">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1>Your spare key.</h1>
+    <p class="lede">If you ever forget your password, this code is the only way back into your journal. Nobody, including us, can recover it for you.</p>
+    <div class="rcode" id="rcode"></div>
+    <div class="row"><button class="btn ghost" id="rcCopy" type="button">Copy</button><button class="btn ghost" id="rcSave" type="button">Download as a file</button></div>
+    <label class="check"><input type="checkbox" id="rcOk"> I've saved it somewhere safe</label>
+    <div class="row"><button class="btn pen" id="rcGo" type="button" disabled>Continue</button></div>
+  </section>
+
+  <!-- 5c · sign in -->
+  <section class="screen" id="s-signin">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1>Welcome back.</h1>
+    <form id="inForm" autocomplete="on">
+      <label class="flab" for="inEmail">Email</label>
+      <input class="field" id="inEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label class="flab" for="inPw">Password</label>
+      <input class="field" id="inPw" type="password" autocomplete="current-password" placeholder="Your password">
+      <div class="row"><button class="btn pen" id="inGo" type="submit">Sign in</button></div>
+    </form>
+    <div class="links"><button class="link" id="inCode" type="button">Email me a code instead</button><button class="link" id="inForgot" type="button">Forgot password?</button><button class="link" type="button" data-go="name">I'm new here</button></div>
+  </section>
+
+  <!-- 5d · enter code -->
+  <section class="screen" id="s-code">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1>Check your email.</h1>
+    <p class="lede" id="codeSub">We've sent a 6-digit code.</p>
+    <form id="codeForm"><input class="field code" id="codeIn" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" required>
+      <div class="row"><button class="btn pen" type="submit">Continue</button><button class="btn ghost" id="codeResend" type="button">Send a new code</button></div></form>
+  </section>
+
+  <!-- 5e · unlock -->
+  <section class="screen" id="s-unlock">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1 id="ulTitle">Unlock your journal.</h1>
+    <p class="lede" id="ulSub">You're signed in. Your entries are still locked on this browser. Enter your password to open them.</p>
+    <form id="ulForm">
+      <label class="flab" for="ulIn" id="ulLab">Password</label>
+      <input class="field" id="ulIn" type="password" autocomplete="current-password" required>
+      <div class="row"><button class="btn pen" type="submit">Unlock</button></div>
+    </form>
+    <div class="links"><button class="link" id="ulSwap" type="button">Use my recovery code instead</button><button class="link" id="ulOut" type="button">Sign out</button></div>
+  </section>
+
+  <!-- 5f · new password -->
+  <section class="screen" id="s-newpw">
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1>Choose a new password.</h1>
+    <p class="lede">Your journal is open. Set a new password and we'll re-lock it. Your recovery code stays the same.</p>
+    <form id="npForm"><label class="flab" for="npIn">New password</label>
+      <input class="field" id="npIn" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters" required>
+      <div class="row"><button class="btn pen" type="submit">Save password</button></div></form>
+  </section>
+
+  <!-- 6 · setup -->
+  <section class="screen" id="s-setup">
+    <div class="steps" id="steps"></div>
+    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span></div>
+    <h1 id="qTitle"></h1>
+    <p class="lede" id="qSub" style="margin-bottom:20px"></p>
+    <div class="opts" id="qOpts"></div>
+    <div class="row"><button class="btn" id="qNext" type="button">Continue</button><button class="btn ghost" id="qSkip" type="button">Skip</button></div>
+  </section>
+
+  <!-- 7 · home -->
+  <section class="screen" id="s-home">
+    <div class="day" id="hDay"></div>
+    <div class="hhead"><h1 id="hTitle"></h1></div>
+    <p class="lede" id="hSub" style="margin-bottom:0"></p>
+    <div class="card calcard"><div class="grid30" id="grid30"></div>
+    <p class="hint" id="hStats" style="margin:12px 0 0"></p></div>
+    <div class="tiles" id="hTiles"></div>
+    <button class="btn pen wide" id="hWrite" type="button">Write today's entry</button>
+    <div class="card"><div class="says" style="margin-bottom:4px"><span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span><span class="who">Today’s question</span></div><div class="q" id="hQ"></div><div class="row" style="gap:18px"><button class="btn ghost" id="hQGo" type="button" style="padding:0">Write from this →</button><button class="btn ghost" id="hQShuf" type="button" style="padding:0">Shuffle</button></div></div>
+    <div class="card"><h2>Your entries</h2><div class="elist" id="hList"></div></div>
+  </section>
+</div>
+
+<div class="cfoot" id="cfoot" hidden><div class="in"><button class="btn" id="finish" type="button" disabled>Finish entry</button></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="/supabase.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
