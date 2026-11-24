@@ -58,7 +58,7 @@ export default async (req) => {
 
   const d = await r.json();
   const text = (d.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
-  const meta = { stop: d.stop_reason, out: d.usage && d.usage.output_tokens, types: (d.content || []).map(c => c.type) };
+  const meta = { stop: d.stop_reason, inp: d.usage && d.usage.input_tokens, out: d.usage && d.usage.output_tokens, types: (d.content || []).map(c => c.type) };
   const s = text.indexOf('{'), e = text.lastIndexOf('}');
   let out = null;
   try { out = JSON.parse(text.slice(s, e + 1)); } catch { out = { text: text.replace(/^```\w*|```$/g, '').trim(), questions: [] }; }
