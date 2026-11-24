@@ -64,23 +64,75 @@ document.addEventListener('click', e => { const b = e.target.closest('.fmtbtn');
 function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
 
 /* ---------- prompts ---------- */
+// Question bank. topic: gen (everyone) | fam | rom | car | mea | pas | ide.  d: depth 1 (light) → 3 (deep).
+// t is either one question, or {am, pm}: am = before midday, pm = after.
 const PROMPTS = [
-  ['p01','What has been on your mind the most today?','any'],['p02','What are you avoiding thinking about right now?','any'],
-  ['p03','What happened today that you want to remember?','any'],['p04','What felt heavier than it should have this week?','any'],
-  ['p05','Where did you feel most like yourself recently?','identity'],['p06','What would you do differently if no one was watching?','identity'],
-  ['p07','Who did you think about today, and why them?','relationships'],['p08','What do you wish someone would ask you?','relationships'],
-  ['p09','Which conversation keeps replaying in your head?','relationships'],['p10','What part of your work gives you energy, and what drains it?','work'],
-  ['p11','If you stopped trying to be productive for a day, what would you do?','work'],['p12','What are you proud of that nobody noticed?','any'],
-  ['p13','What is a decision you keep putting off? What is it costing you?','decisions'],['p14','What would the version of you a year from now thank you for?','decisions'],
-  ['p15','What did your body tell you today?','health'],['p16','When did you last feel completely rested?','health'],
-  ['p17','What did your family teach you that you are still unlearning?','family'],['p18','What is something you have never said out loud?','any'],
-  ['p19','What are you making, or wanting to make?','creativity'],['p20','What idea keeps coming back to you?','creativity'],
-  ['p21','What does enough money look like to you?','money'],['p22','What are you scared might be true?','any'],
-  ['p23','Where do you feel like you belong?','identity'],['p24','What made you laugh recently?','any'],
-  ['p25','What would you tell a friend going through what you are going through?','any'],['p26','What is one small thing you could do tomorrow that you would feel good about?','any'],
-  ['p27','Who do you miss?','relationships'],['p28','What are you holding onto that you could let go of?','any']
+  // light, for everyone, time-aware
+  { id: 'g01', topic: 'gen', d: 1, t: { am: 'What did you get up to yesterday?', pm: 'What did you get up to today?' } },
+  { id: 'g02', topic: 'gen', d: 1, t: { am: 'What do you have planned for today?', pm: 'What have you got planned for tomorrow?' } },
+  { id: 'g03', topic: 'gen', d: 1, am: true, t: 'Describe your most recent dream. Write down everything you can remember.' },
+  { id: 'g04', topic: 'gen', d: 1, t: { am: 'What’s one thing you could do today that would make you feel good?', pm: 'What’s one thing you could do tomorrow that would make you feel good?' } },
+  { id: 'g05', topic: 'gen', d: 1, t: 'What’s something you’re proud of this year?' },
+  { id: 'g06', topic: 'gen', d: 1, t: { am: 'How did you sleep, and what’s on your mind this morning?', pm: 'What was the best part of your day?' } },
+  { id: 'g07', topic: 'gen', d: 1, t: 'What made you laugh recently?' },
+  { id: 'g08', topic: 'gen', d: 1, t: 'What are you looking forward to this week?' },
+  { id: 'g09', topic: 'gen', d: 1, t: 'What’s been on your mind the most lately?' },
+  { id: 'g10', topic: 'gen', d: 1, t: { am: 'How are you feeling this morning, honestly?', pm: 'How are you feeling tonight, honestly?' } },
+  { id: 'g11', topic: 'gen', d: 2, t: 'What felt heavier than it should have this week?' },
+  { id: 'g12', topic: 'gen', d: 2, t: 'What are you avoiding thinking about right now?' },
+  { id: 'g13', topic: 'gen', d: 2, t: 'What would you tell a friend going through what you’re going through?' },
+  { id: 'g14', topic: 'gen', d: 2, t: 'Where did you feel most like yourself recently?' },
+  { id: 'g15', topic: 'gen', d: 3, t: 'What are you scared might be true?' },
+  { id: 'g16', topic: 'gen', d: 3, t: 'What’s something you’ve never said out loud?' },
+  { id: 'g17', topic: 'gen', d: 3, t: 'What are you holding onto that you could let go of?' },
+  // Friends & Family
+  { id: 'f01', topic: 'fam', d: 1, t: { am: 'Who did you spend time with recently, and how was it?', pm: 'Who did you see or talk to today?' } },
+  { id: 'f02', topic: 'fam', d: 1, t: 'Who would you like to catch up with soon, and why them?' },
+  { id: 'f03', topic: 'fam', d: 2, t: 'Which friendship has changed the most in the last few years?' },
+  { id: 'f04', topic: 'fam', d: 2, t: 'What do you wish your family understood about you?' },
+  { id: 'f05', topic: 'fam', d: 3, t: 'What did your family teach you that you’re still unlearning?' },
+  { id: 'f06', topic: 'fam', d: 3, t: 'Who do you miss?' },
+  // Romantic relationships
+  { id: 'r01', topic: 'rom', d: 1, t: 'What’s a small moment of connection you had recently?' },
+  { id: 'r02', topic: 'rom', d: 1, t: 'What does a good relationship look like to you?' },
+  { id: 'r03', topic: 'rom', d: 2, t: 'What do you need more of in love, and are you asking for it?' },
+  { id: 'r04', topic: 'rom', d: 2, t: 'What pattern do you notice in who you’re drawn to?' },
+  { id: 'r05', topic: 'rom', d: 3, t: 'What are you afraid would happen if you let someone fully see you?' },
+  { id: 'r06', topic: 'rom', d: 3, t: 'What have past relationships taught you about yourself?' },
+  // Career & work
+  { id: 'c01', topic: 'car', d: 1, t: { am: 'What’s on your plate at work today?', pm: 'How did work go today?' } },
+  { id: 'c02', topic: 'car', d: 1, t: 'What part of your work gives you energy?' },
+  { id: 'c03', topic: 'car', d: 2, t: 'What part of your work drains you, and why?' },
+  { id: 'c04', topic: 'car', d: 2, t: 'If money weren’t a factor, what would you work on?' },
+  { id: 'c05', topic: 'car', d: 3, t: 'Whose definition of success are you chasing?' },
+  { id: 'c06', topic: 'car', d: 3, t: 'What would you regret not trying?' },
+  // Meaning & purpose
+  { id: 'm01', topic: 'mea', d: 1, t: { am: 'What would make today feel worthwhile?', pm: 'What made today feel worthwhile?' } },
+  { id: 'm02', topic: 'mea', d: 1, t: 'What are you grateful for right now?' },
+  { id: 'm03', topic: 'mea', d: 2, t: 'When do you lose track of time?' },
+  { id: 'm04', topic: 'mea', d: 2, t: 'What do you want more of in your life this year?' },
+  { id: 'm05', topic: 'mea', d: 3, t: 'What would you like people to say about you when you’re not in the room?' },
+  { id: 'm06', topic: 'mea', d: 3, t: 'What do you believe that most people around you don’t?' },
+  // Past & childhood
+  { id: 'h01', topic: 'pas', d: 1, t: 'What’s a favourite memory from when you were a kid?' },
+  { id: 'h02', topic: 'pas', d: 1, t: 'Where did you grow up, and what was it like?' },
+  { id: 'h03', topic: 'pas', d: 2, t: 'Who shaped you most growing up?' },
+  { id: 'h04', topic: 'pas', d: 2, t: 'What did you want to be when you were young, and what happened to that?' },
+  { id: 'h05', topic: 'pas', d: 3, t: 'What would you say to your younger self?' },
+  { id: 'h06', topic: 'pas', d: 3, t: 'What from your childhood still shows up in how you act today?' },
+  // Ideas & creativity
+  { id: 'i01', topic: 'ide', d: 1, t: 'What idea has been on your mind lately?' },
+  { id: 'i02', topic: 'ide', d: 1, t: 'What’s something you’d love to make or build?' },
+  { id: 'i03', topic: 'ide', d: 2, t: 'What idea keeps coming back to you?' },
+  { id: 'i04', topic: 'ide', d: 2, t: 'What’s stopping you from starting?' },
+  { id: 'i05', topic: 'ide', d: 3, t: 'What would you create if you knew no one would judge it?' },
+  { id: 'i06', topic: 'ide', d: 3, t: 'Which idea are you most afraid to take seriously?' }
 ];
-const PMAP = Object.fromEntries(PROMPTS.map(p => [p[0], p]));
+const TOPICS = [['fam', 'Friends & Family'], ['rom', 'Romantic Relationships'], ['car', 'Career & work'], ['mea', 'Meaning & purpose'], ['pas', 'Past & Childhood'], ['ide', 'Ideas & creativity']];
+const PMAP = Object.fromEntries(PROMPTS.map(p => [p.id, p]));
+const isAM = () => new Date().getHours() < 12;
+// Text of any question id: from the bank (morning/evening wording), or one Mr Journal wrote for this person ('ai-…').
+function ptext(pid){ if (!pid) return ''; const p = PMAP[pid]; if (p) return typeof p.t === 'string' ? p.t : (isAM() ? p.t.am : p.t.pm); return (S.aiq && S.aiq[pid]) || ''; }
 
 /* ---------- state ---------- */
 // S: { name, step, start, answers, entries:{date:{blocks:[{pid,text}],seconds,reflection,convo,createdAt,updatedAt}}, votes:{pid:{v,at}} }
@@ -138,7 +190,7 @@ function pushNow(){
 window.addEventListener('pagehide', () => { if (dirty) pushNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && dirty) pushNow(); });
 function syncEntry(d){ saveLocal(); if (d) syncStats(d); }
-function syncProfile(){ saveLocal(); if (!SIGNED) return; const a = S.answers || {}; sb.from('profiles').upsert({ user_id: USER.id, why: a.why || null, topics: a.topics || [], heard: a.heard || null, start_day: S.start || null, updated_at: new Date().toISOString() }).then(() => {}, () => {}); }
+function syncProfile(){ saveLocal(); if (!SIGNED) return; const a = S.answers || {}; sb.from('profiles').upsert({ user_id: USER.id, why: [].concat(a.why || []).join(', ') || null, topics: a.topics || [], heard: a.heard || null, start_day: S.start || null, updated_at: new Date().toISOString() }).then(() => {}, () => {}); }
 // Plain numbers only: which question, how many words, how long. Never the words themselves.
 const statT = {};
 function syncStats(d){
@@ -229,32 +281,41 @@ function show(name){
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
   $('#cfoot').hidden = name !== 'compose';
   $('#outBtn').hidden = !SIGNED;
-  $('#brandName').textContent = 'Mr Journal';
   window.scrollTo({ top: 0 });
   ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
 
 /* 1 · name */
-function renderName(){ const h = new Date().getHours(); $('#greet').textContent = `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}. What’s your name?`; $('#nameIn').value = S.name || ''; $('#nameGo').disabled = !$('#nameIn').value.trim(); setTimeout(() => $('#nameIn').focus(), 60); }
+function renderName(){ $('#greet').textContent = 'What is your name?'; $('#nameIn').value = S.name || ''; $('#nameGo').disabled = !$('#nameIn').value.trim(); setTimeout(() => $('#nameIn').focus(), 60); }
 $('#nameIn').addEventListener('input', () => $('#nameGo').disabled = !$('#nameIn').value.trim());
 $('#nameForm').onsubmit = e => { e.preventDefault(); const n = $('#nameIn').value.trim().replace(/\s+/g, ' '); if (!n) return; S.name = n.charAt(0).toUpperCase() + n.slice(1); show('welcome'); };
 
 /* 2 · welcome */
-function renderWelcome(){ $('#hello').textContent = `Welcome, ${S.name}.`; }
-$('#startFirst').onclick = () => openDay(today());
+function renderWelcome(){ $('#hello').textContent = `Hi, ${S.name}.`; }
+$('#startFirst').onclick = () => { qi = 0; show('setup'); };
+$('#beginBtn').onclick = () => { S.start = S.start || today(); openDay(today()); };
 
 /* 3 · compose */
 let editing = null, secs = 0, lastType = 0, tick = null;
+function written(){ return Object.values(S.entries).filter(e => totalWords(e) > 0).length; }
+// Pick the next question: light at first, deeper as entries build up; weighted to the topics they chose and the questions they liked.
 function pickPrompt(exclude = []){
-  const topics = (S.answers.topics || []);
+  const topics = [].concat((S.answers && S.answers.topics) || []);
+  const n = written(), cap = n < 3 ? 1 : n < 10 ? 2 : 3;
   const seen = new Set(Object.values(S.entries).flatMap(e => (e.blocks || []).map(b => b.pid)).concat(exclude));
-  let pool = PROMPTS.filter(p => !seen.has(p[0]) && (S.votes[p[0]]?.v || 0) !== -1);
-  if (!pool.length) pool = PROMPTS.filter(p => !exclude.includes(p[0]));
-  const pref = pool.filter(p => p[2] === 'any' || topics.includes(p[2]));
-  const from = pref.length ? pref : pool;
-  // first entry of all opens on the gentlest question
-  if (!Object.keys(S.entries).length && !exclude.length && from.find(p => p[0] === 'p01')) return 'p01';
-  return from[Math.floor(Math.random() * from.length)][0];
+  // first question ever: easy and time-aware
+  if (!n && !exclude.length && !Object.keys(S.entries).some(d => d !== editing)) return 'g01';
+  // Mr Journal's own follow-up from their last reflection opens the day once they're past the first couple of entries
+  if (!exclude.length && S.nextQ && S.nextQ.id && !seen.has(S.nextQ.id) && n >= 2) return S.nextQ.id;
+  const liked = {}; Object.entries(S.votes || {}).forEach(([k, v]) => { const p = PMAP[k]; if (p && v.v === 1) liked[p.topic] = (liked[p.topic] || 0) + 1; });
+  let pool = PROMPTS.filter(p => !seen.has(p.id) && (S.votes[p.id]?.v || 0) !== -1 && p.d <= cap);
+  if (!pool.length) pool = PROMPTS.filter(p => !exclude.includes(p.id) && (S.votes[p.id]?.v || 0) !== -1);
+  if (!pool.length) pool = PROMPTS.slice();
+  const w = p => (p.topic === 'gen' ? (n < 3 ? 3 : 1.5) : topics.includes(p.topic) ? 3 : topics.length ? 0.3 : 1)
+    * (p.d === cap ? 2 : 1) * (1 + (liked[p.topic] || 0) * 0.5) * (p.am ? (isAM() ? 2 : 0.4) : 1);
+  const tot = pool.reduce((s, p) => s + w(p), 0); let r = Math.random() * tot;
+  for (const p of pool) { r -= w(p); if (r <= 0) return p.id; }
+  return pool[0].id;
 }
 function openDay(d, fromPrompt){
   editing = d;
@@ -262,7 +323,7 @@ function openDay(d, fromPrompt){
   else if (fromPrompt) S.entries[d].blocks.push({ pid: fromPrompt, text: '' });
   show('compose');
 }
-const MR = `<span class="mr" aria-hidden="true"><svg viewBox="0 0 100 30"><path d="M50 10.5C46.5 5.5 41.5 3.5 36 3.5 27.5 3.5 21.5 10 14.5 13 10.5 14.8 6.5 14.6 2.5 11.8 4.6 19.2 12 25.5 22.5 25.5 33.5 25.5 43.5 20.2 50 14.8 56.5 20.2 66.5 25.5 77.5 25.5 88 25.5 95.4 19.2 97.5 11.8 93.5 14.6 89.5 14.8 85.5 13 78.5 10 72.5 3.5 64 3.5 58.5 3.5 53.5 5.5 50 10.5Z"/></svg></span>`;
+const MR = `<span class="mr" aria-hidden="true"><svg viewBox="0 0 694 170"><path fill-rule="evenodd" d="M144.0 166.0C119.3 163.6 92.7 155.4 71.8 143.7C41.9 127.0 17.3 99.4 6.4 70.3C3.2 61.7 4.6 61.4 14.8 68.5C36.4 83.3 60.2 88.7 86.5 84.6C114.3 80.4 137.7 69.9 167.3 48.5C212.2 16.2 227.4 8.9 258.0 5.0C282.8 1.8 310.1 9.3 330.0 24.8C332.5 26.7 337.5 31.2 341.1 34.7L347.7 41.1 L353.6 35.3C387.8 1.1 435.1 -5.0 482.0 18.5C491.7 23.4 504.8 31.9 527.0 47.8C559.8 71.3 583.3 81.7 611.3 85.0C637.5 88.1 658.6 83.1 680.5 68.5C688.8 63.0 691.0 62.1 691.0 64.1C691.0 66.8 685.2 79.4 679.8 88.5C653.4 133.3 605.4 161.2 546.4 166.1C503.2 169.7 451.9 157.4 405.5 132.3C390.5 124.1 368.3 109.6 356.6 100.2L347.7 93.1 L345.1 95.0C306.0 125.1 272.1 143.1 231.5 155.5C202.4 164.4 169.1 168.4 144.0 166.0Z"/></svg></span>`;
 const ICON = {
   up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4V10zM7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>',
   down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3h3v11zM17 14l-4 8a3 3 0 0 1-3-3v-4H4.5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 5.9 3H17"/></svg>',
@@ -274,10 +335,10 @@ function renderCompose(){
   const e = S.entries[editing];
   e.blocks = e.blocks.filter((b, k, a) => b.text.trim() || k === a.length - 1); if (!e.blocks.length) e.blocks = [{ pid: pickPrompt(), text: '' }]; secs = e.seconds || 0;
   $('#cDate').textContent = nice(editing) + (editing === today() ? '' : '');
-  $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = b.pid ? PMAP[b.pid] : null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
-    return `<div class="pblock${p ? '' : ' free'}" data-i="${i}">${p && last ? `<div class="says">${MR}</div>` : ''}${p ? `<div class="phead"><h2 class="prompt">${esc(p[1])}</h2><button type="button" class="px" aria-label="Remove this question and write freely" title="Remove question">${ICON.x}</button></div>
+  $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = b.pid && ptext(b.pid) ? ptext(b.pid) : null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
+    return `<div class="pblock${p ? '' : ' free'}" data-i="${i}">${p && last ? `<div class="says">${MR}</div>` : ''}${p ? `<div class="phead"><h2 class="prompt">${esc(p)}</h2><button type="button" class="px" aria-label="Remove this question and write freely" title="Remove question">${ICON.x}</button></div>
       <div class="pacts"><button type="button" class="pu ic${v.v === 1 ? ' on' : ''}" aria-label="Thumbs up" aria-pressed="${v.v === 1}">${ICON.up}</button><button type="button" class="pdn ic${v.v === -1 ? ' on' : ''}" aria-label="Thumbs down" aria-pressed="${v.v === -1}">${ICON.down}</button>${last ? `<button type="button" class="pn" aria-label="Add the next question below">${ICON.next}<span>Next</span></button>` : ''}</div>` : (last ? `<div class="pacts"><button type="button" class="pn" aria-label="Add a question below">${ICON.next}<span>Add a question</span></button></div>` : '')}
-      <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p ? p[1] : 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
+      <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
     t.addEventListener('input', () => { e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); });
@@ -291,12 +352,12 @@ function renderCompose(){
   clearInterval(tick); tick = setInterval(() => { if (cur !== 'compose') return; if (Date.now() - lastType < 60000) { secs++; e.seconds = secs; } clockShow(); }, 1000);
 }
 function swap(i){ const e = S.entries[editing]; const used = e.blocks.map(b => b.pid); e.blocks[i].pid = pickPrompt(used); saveLocal();
-  const el = document.querySelector(`.pblock[data-i="${i}"]`); const p = PMAP[e.blocks[i].pid];
-  el.querySelector('.prompt').textContent = p[1]; el.querySelector('.wr').setAttribute('aria-label', p[1]); el.querySelector('.pu').classList.remove('on'); }
+  const el = document.querySelector(`.pblock[data-i="${i}"]`); const p = ptext(e.blocks[i].pid);
+  el.querySelector('.prompt').textContent = p; el.querySelector('.wr').setAttribute('aria-label', p); el.querySelector('.pu').classList.remove('on'); }
 function vote(pid, val){ S.votes[pid] = { v: val, at: Date.now() }; voteRow(pid, val); S.voteLog = (S.voteLog || []).concat({ pid, v: val, day: editing, at: Date.now() }).slice(-500); syncVotes(); }
 function size(t){ return; const sc = window.scrollY; t.style.height = 'auto'; t.style.height = Math.max(t.closest('.pblock:last-child') ? 140 : 56, t.scrollHeight) + 'px'; window.scrollTo(0, sc); }
 function totalWords(e){ return (e.blocks || []).reduce((s, b) => s + words(b.text), 0) + (e.convo || []).filter(m => m.who === 'me').reduce((s, m) => s + words(m.text), 0); }
-function counts(){ const n = totalWords(S.entries[editing]); $('#cWords').textContent = `${n} word${n === 1 ? '' : 's'}`; $('#finish').disabled = n < 1; }
+function counts(){ const n = totalWords(S.entries[editing]); $('#cWords').textContent = `${n} word${n === 1 ? '' : 's'}`; $('#finish').disabled = n < 1; $('#saveBtn').disabled = n < 1; const r = S.entries[editing].reflection; $('#finish').textContent = r && r.len === entryText(S.entries[editing]).length ? 'View reflection' : 'Reflect'; }
 function clockShow(){ const m = Math.floor(secs / 60), s = secs % 60; $('#clockT').textContent = `${m}:${String(s).padStart(2, '0')}`; $('#clock').classList.toggle('run', Date.now() - lastType < 60000); }
 let qT; function queue(){ clearTimeout(qT); qT = setTimeout(() => syncEntry(editing), 1200); saveLocal(); }
 function addNext(){
@@ -306,15 +367,17 @@ function addNext(){
   e.blocks.push({ pid: pickPrompt(used), text: '' }); saveLocal(); renderCompose();
   setTimeout(() => document.querySelector('.pblock:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
 }
-$('#finish').onclick = () => { const e = S.entries[editing]; e.blocks = e.blocks.filter((b, i) => b.text.trim() || i === 0); e.updatedAt = Date.now(); syncEntry(editing); clearInterval(tick); if (!SIGNED) { pendingReflect = true; show('account'); } else show('reflect'); };
+function closeEntry(){ const e = S.entries[editing]; e.blocks = e.blocks.filter((b, i) => b.text.trim() || i === 0); e.updatedAt = Date.now(); clearTimeout(qT); syncEntry(editing); clearInterval(tick); }
+$('#saveBtn').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = false; show('account'); return; } toast('Saved.'); show('home'); };
+$('#finish').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = true; show('account'); } else show('reflect'); };
 
 /* 4 · reflection */
 function entryFull(e){ const base = entryText(e); const c = (e.convo || []).map(m => (m.who === 'me' ? 'Writer replied: ' : 'Mr Journal: ') + m.text).join('\n'); return c ? base + '\n\n' + c : base; }
-function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (b.pid && PMAP[b.pid] ? `${PMAP[b.pid][1]}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
+function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (b.pid && ptext(b.pid) ? `${ptext(b.pid)}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
 function renderReflect(){
   const e = S.entries[editing], first = Object.keys(S.entries).length === 1;
   $('#rTitle').textContent = first ? `That's your first entry, ${S.name}.` : 'Here’s what I noticed.';
-  $('#rEntry').innerHTML = e.blocks.filter(b => b.text.trim()).map(b => `${b.pid && PMAP[b.pid] ? `<span class="eq">${esc(PMAP[b.pid][1])}</span>` : '<span style="display:block;height:10px"></span>'}${MK.render(b.text.trim())}`).join('');
+  $('#rEntry').innerHTML = e.blocks.filter(b => b.text.trim()).map(b => `${b.pid && ptext(b.pid) ? `<span class="eq">${esc(ptext(b.pid))}</span>` : '<span style="display:block;height:10px"></span>'}${MK.render(b.text.trim())}`).join('');
   $('#rNext').textContent = 'Done';
   if (e.reflection && e.reflection.len === entryText(e).length) return paint(e.reflection);
   reflect();
@@ -422,6 +485,8 @@ async function goDeeper(){
     const last = document.querySelector('#rBody .deep:last-of-type'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) { btn.disabled = false; btn.textContent = err && err.code === 'rate_limited' ? 'Too many requests. Try again in a minute' : 'Couldn\u2019t go deeper just now. Try again'; }
 }
+function surveyLine(){ const a = S.answers || {}; const why = [].concat(a.why || []), tp = [].concat(a.topics || []).map(k => (TOPICS.find(t => t[0] === k) || [k, k])[1]);
+  return (why.length || tp.length) ? `- What brought them here: ${why.join(', ') || 'not said'}. What they want to write about: ${tp.join(', ') || 'not said'}. Use this only as gentle context.` : ''; }
 async function reflect(){
   const e = S.entries[editing], text = entryText(e);
   if (!SIGNED) { pendingReflect = true; show('account'); return; }
@@ -431,6 +496,7 @@ async function reflect(){
   const prompt = [
     'CONTEXT FOR THIS REPLY',
     `- The writer's name is ${S.name}.`,
+    surveyLine(),
     `- Numbers: ${JSON.stringify(stats)}${stats.milestone ? `. Today is day ${stats.milestone}: include the short summary of numbers and patterns so far.` : ''}`,
     `- Today's entry is ${n} words of his own writing.`,
     past.length ? `- Earlier entries (the only ones you may cite as evidence for a pattern; cite by date): ${JSON.stringify(past)}` : '- This is their first entry. There are no earlier entries, so there are no patterns to name yet.',
@@ -443,13 +509,15 @@ async function reflect(){
     '- insights: one to three short points (each under 25 words) on what stands out today: a tension, a shift, something they saw clearly, honest pushback if earned.',
     '- patterns: zero to two short points (each under 30 words) linking today to earlier entries, citing dates. Only a pattern that appears in at least three entries. If there is none yet, return an empty list. Never invent one.',
     '- questions: one to three short open questions.',
-    'Return ONLY JSON: {"summary":"…","insights":["…"],"patterns":["…"],"questions":["…"]}. If you have stepped out of the mirror for safety, put your whole response in summary and leave the lists empty.'
+    '- next: one light, inviting question to open their next entry, building on something they wrote today. Easy to start answering. Not heavy, not a repeat of the questions above.',
+    'Return ONLY JSON: {"summary":"…","insights":["…"],"patterns":["…"],"questions":["…"],"next":"…"}. If you have stepped out of the mirror for safety, put your whole response in summary and leave the lists empty.'
   ].join('\n');
   try {
     const r = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
     const list = (x, n, l) => (Array.isArray(x) ? x : []).map(v => String(v).trim().slice(0, l)).filter(Boolean).slice(0, n);
     const qs = list(r.questions, 3, 300), ins = list(r.insights, 3, 400), pat = list(r.patterns, 2, 400);
     const summary = String(r.summary || r.text || '').slice(0, 900);
+    if (r.next && typeof r.next === 'string') { const id = 'ai-' + editing; S.aiq = Object.assign({}, S.aiq, { [id]: String(r.next).slice(0, 240) }); S.nextQ = { id, from: editing }; }
     e.reflection = { summary, insights: ins, patterns: pat, questions: qs, question: qs[0] || '', text: [summary].concat(ins, pat).join('\n'), len: text.length, at: Date.now() };
     syncEntry(editing); if (cur === 'reflect') paint(e.reflection);
   } catch (err) {
@@ -459,7 +527,7 @@ async function reflect(){
   }
 }
 $('#rBack').onclick = () => show('compose');
-$('#rNext').onclick = () => { if (!S.answers || S.answers.why === undefined) { qi = 0; show('setup'); } else show('home'); };
+$('#rNext').onclick = () => show('home');
 
 /* 5 · account */
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) show(g.dataset.go); });
@@ -528,9 +596,8 @@ $('#outBtn').onclick = signOut;
 
 /* 6 · setup */
 const QS = [
-  { k: 'why', t: 'What brings you here?', s: 'Pick one. It helps me ask better questions.', multi: false, o: ['Process what’s going on', 'Understand myself better', 'Build a writing habit', 'Get unstuck on something', 'Just curious'] },
-  { k: 'topics', t: 'What would you like to write about?', s: 'Choose any that apply.', multi: true, o: [['relationships','Relationships'],['work','Work and purpose'],['family','Family'],['identity','Identity and belonging'],['health','Health and body'],['creativity','Creativity'],['money','Money'],['decisions','Big decisions']] },
-  { k: 'heard', t: 'How did you find us?', s: 'It helps me a great deal while I’m new.', multi: false, o: ['Instagram', 'TikTok', 'A friend', 'Search', 'Somewhere else'] }
+  { k: 'why', t: 'What brings you here?', s: 'Choose any that apply.', multi: true, o: ['Clear my head', 'Understand myself better', 'Work through something', 'Navigate a big change', 'Build a daily habit', 'Just curious'] },
+  { k: 'topics', t: 'What would you like to write about?', s: 'Choose any that apply. I’ll shape my questions around them.', multi: true, o: TOPICS }
 ];
 let qi = 0, pick = [];
 function renderSetup(){
@@ -541,10 +608,10 @@ function renderSetup(){
   document.querySelectorAll('#qOpts .opt').forEach(b => b.onclick = () => { const v = b.dataset.v;
     if (q.multi) { pick = pick.includes(v) ? pick.filter(x => x !== v) : pick.concat(v); renderPicks(); }
     else { pick = [v]; renderPicks(); setTimeout(next, 220); } });
-  $('#qNext').hidden = !q.multi;
+  $('#qNext').hidden = !q.multi; $('#qBack').onclick = () => { if (qi > 0) { qi--; renderSetup(); } else show('welcome'); };
 }
 function renderPicks(){ document.querySelectorAll('#qOpts .opt').forEach(b => { const on = pick.includes(b.dataset.v); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
-function next(){ const q = QS[qi]; S.answers[q.k] = q.multi ? pick : (pick[0] || null); syncProfile(); qi++; if (qi >= QS.length) show('home'); else renderSetup(); }
+function next(){ const q = QS[qi]; S.answers[q.k] = q.multi ? pick : (pick[0] || null); syncProfile(); qi++; if (qi >= QS.length) show(Object.keys(S.entries).some(d => totalWords(S.entries[d]) > 0) ? 'home' : 'thesis'); else renderSetup(); }
 $('#qNext').onclick = next; $('#qSkip').onclick = () => { pick = []; next(); };
 
 /* 7 · home */
@@ -566,12 +633,11 @@ function renderHome(){
   const tm = allS >= 3600 ? `${Math.floor(allS / 3600)}h ${Math.round((allS % 3600) / 60)}m` : `${Math.max(allS ? 1 : 0, Math.round(allS / 60))} min`;
   $('#hTiles').innerHTML = [[allW.toLocaleString('en-AU'), 'words written'], [tm, 'time writing'], [`${streak} day${streak === 1 ? '' : 's'}`, 'streak']].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
   $('#hWrite').textContent = has(T) ? 'Keep writing today’s entry' : 'Write today’s entry';
-  const qid = PROMPTS[(Math.floor(new Date(T + 'T12:00') / 864e5) + (S.name || '').length) % PROMPTS.length][0];
-  if (!hq || hq.day !== T) hq = { day: T, id: qid };
-  $('#hQ').textContent = PMAP[hq.id][1]; $('#hQGo').onclick = () => openDay(T, hq.id);
-  $('#hQShuf').onclick = () => { let n; do { n = PROMPTS[Math.floor(Math.random() * PROMPTS.length)][0]; } while (n === hq.id); hq.id = n; $('#hQ').textContent = PMAP[n][1]; };
+  if (!hq || hq.day !== T) hq = { day: T, id: (S.entries[T] && S.entries[T].blocks[0] && !totalWords(S.entries[T]) && S.entries[T].blocks[0].pid) || pickPrompt() };
+  $('#hQ').textContent = ptext(hq.id); $('#hQGo').onclick = () => openDay(T, hq.id);
+  $('#hQShuf').onclick = () => { hq.id = pickPrompt([hq.id].concat(S.nextQ ? [S.nextQ.id] : [])); $('#hQ').textContent = ptext(hq.id); };
   const list = Object.entries(S.entries).filter(([, e]) => totalWords(e) > 0).sort((a, b) => b[0] < a[0] ? -1 : 1);
-  $('#hList').innerHTML = list.map(([d, e]) => { const first = e.blocks.find(b => b.text.trim()); return `<button type="button" class="erow" data-d="${d}"><span class="d">${short(d)}</span><span class="t">${esc(first ? MK.strip(first.text).trim().split('\n')[0] : '')}</span><span class="w">${totalWords(e)} words · ${Math.round((e.seconds || 0) / 60)} min</span></button>`; }).join('') || '<p class="hint">Your entries will show up here.</p>';
+  $('#hList').innerHTML = list.map(([d, e]) => { const first = e.blocks.find(b => b.text.trim()); return `<button type="button" class="erow" data-d="${d}"><span class="d">${short(d)}</span><span class="t">${esc(first ? MK.strip(first.text).trim().split('\n')[0] : '')}</span><span class="w">${e.reflection ? 'Reflected · ' : ''}${totalWords(e)} words · ${Math.round((e.seconds || 0) / 60)} min</span></button>`; }).join('') || '<p class="hint">Your entries will show up here.</p>';
   document.querySelectorAll('#hList .erow').forEach(b => b.onclick = () => openDay(b.dataset.d));
   $('#banner').hidden = SIGNED; $('#banner').textContent = 'Your entries are only in this browser. Create your account to lock them in and keep them safe.';
 }
@@ -589,6 +655,7 @@ function bootLocal(){
   if (S.step === 'compose' && !(S.entries && editing)) { const d = Object.keys(S.entries || {}).sort().pop(); if (d) editing = d; else S.step = S.name ? 'welcome' : 'name'; }
   if (S.step === 'reflect') { editing = Object.keys(S.entries).sort().pop(); if (!editing) S.step = 'name'; }
   if (S.step === 'setup') qi = 0;
+  if (S.step === 'thesis' && !S.name) S.step = 'name';
   if (S.step === 'account' && !Object.keys(S.entries).length) S.step = 'name';
   show(S.step || 'name');
 }
