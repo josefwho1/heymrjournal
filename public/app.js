@@ -482,7 +482,7 @@ async function suggestFollow(i){
     const q = r && typeof r.question === 'string' ? r.question.trim().slice(0, 200) : '';
     if (!q || r.crisis || cur !== 'compose' || S.entries[editing] !== e || e.blocks.length - 1 !== i) return;
     const box = document.createElement('div'); box.className = 'fsug';
-    box.innerHTML = `<div class="says">${MR}</div><p>${esc(q)}</p><div class="fact"><button type="button" class="chip fyes">Answer this</button><button type="button" class="link fno">Not now</button></div>`;
+    box.innerHTML = `<span class="flab2">Clive asks</span><p>${esc(q)}</p><div class="fact"><button type="button" class="chip fyes">Answer this</button><button type="button" class="link fno">Not now</button></div>`;
     el.appendChild(box);
     box.querySelector('.fyes').onclick = () => { const id = 'ai-f-' + editing + '-' + Date.now().toString(36); S.aiq = Object.assign({}, S.aiq, { [id]: q }); e.follows = (e.follows || 0) + 1; e.blocks.push({ pid: id, text: '' }); saveLocal(); renderCompose(); setTimeout(() => document.querySelector('.pblock:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
     box.querySelector('.fno').onclick = () => { b.fdis = true; box.remove(); saveLocal(); };

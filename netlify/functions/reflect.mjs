@@ -16,6 +16,7 @@ Rules:
 - Build directly on their own words: a detail they mentioned, a feeling they named, something they skipped past, or what happened next.
 - Open and easy to start answering. Under 18 words. Plain language. No advice, no "should", no interpretation, no praise, no therapy-speak.
 - Never repeat the question they were already answering.
+- Ask about what happened, what they thought, the people involved, or what it means to them. Don't ask about bodily sensations.
 - Match the weight of what they wrote: light for light things, gentle for heavy things.
 - If they mention self-harm, suicide, wanting to die, or being in danger, return {"question": null, "crisis": true}.
 - Australian/British spelling.
