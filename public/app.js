@@ -568,6 +568,7 @@ async function reflect(){
     const summary = String(r.summary || r.text || '').slice(0, 900);
     const crisis = r.crisis === true || CRISIS_RE.test(text);
     let nudge = null;
+    if (typeof r.nudge === 'string' && r.nudge.trim()) r.nudge = { kind: 'person', target: '', text: r.nudge.trim() };
     if (!crisis && r.nudge && typeof r.nudge === 'object' && r.nudge.text) {
       nudge = { kind: String(r.nudge.kind || 'person').slice(0, 20), target: String(r.nudge.target || '').toLowerCase().slice(0, 40), text: String(r.nudge.text).slice(0, 300) };
       S.nudges = (S.nudges || []).filter(x => x.day !== editing).concat({ day: editing, at: Date.now(), kind: nudge.kind, target: nudge.target }).slice(-60);
