@@ -747,6 +747,11 @@ $('#npForm').onsubmit = async e => { e.preventDefault(); const pw = $('#npIn').v
   } catch (err) { toast(errMsg(err)); }
   busy($('#npForm'), false); };
 $('#outBtn').onclick = signOut;
+// "I'm new here": wipe everything this browser holds (any session, stored key, unsaved draft) and start completely fresh
+$('#inNew').onclick = async () => { try { await sb.auth.signOut(); } catch(e){} await keyClear();
+  ['hmj-draft', 'hmj-forgot', 'hmj-invite', 'fj-state'].forEach(k => store.del(k));
+  SIGNED = false; DEK = null; USER = null; editing = null; pendingReflect = false; hq = null; S = { step: 'name', entries: {}, votes: {}, answers: {} };
+  $('#nameIn').value = ''; show('name'); };
 
 /* 6 · setup */
 const QS = [
