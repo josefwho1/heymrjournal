@@ -210,10 +210,10 @@ function voteRow(pid, v){ if (!SIGNED || !pid) return; sb.from('votes').upsert({
 
 /* ---------- reflections go through our server, which adds the persona and calls the AI; nothing is stored there ---------- */
 const SAMPLE = {
-  async json(prompt){
+  async json(prompt, opts = {}){
     const { data } = await sb.auth.getSession(); const t = data && data.session && data.session.access_token;
     if (!t) throw { code: 'not_signed_in' };
-    const call = () => fetch('/api/reflect', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ name: S.name || '', prompt }) });
+    const call = () => fetch('/api/reflect', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ name: S.name || '', prompt, mode: opts.mode || 'reflect' }) });
     let r; try { r = await call(); } catch (e) { r = { status: 599 }; }
     if (r.status >= 500) { await new Promise(res => setTimeout(res, 1500)); try { r = await call(); } catch (e) { r = { status: 599, ok: false }; } } // one quiet retry
     if (r.status === 429) throw { code: 'rate_limited' };
@@ -449,7 +449,7 @@ function renderCompose(){
       <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
-    t.addEventListener('input', () => { e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); });
+    t.addEventListener('input', () => { e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 6000); });
     const pu = el.querySelector('.pu'), pdn = el.querySelector('.pdn');
     const setV = val => { const now = (S.votes[e.blocks[i].pid] || {}).v || 0; vote(e.blocks[i].pid, now === val ? 0 : val); const v2 = S.votes[e.blocks[i].pid].v; pu.classList.toggle('on', v2 === 1); pu.setAttribute('aria-pressed', v2 === 1); pdn.classList.toggle('on', v2 === -1); pdn.setAttribute('aria-pressed', v2 === -1); };
     if (pu) pu.onclick = () => setV(1); if (pdn) pdn.onclick = () => setV(-1);
@@ -467,6 +467,27 @@ function size(t){ return; const sc = window.scrollY; t.style.height = 'auto'; t.
 function totalWords(e){ return (e.blocks || []).reduce((s, b) => s + words(b.text), 0) + (e.convo || []).filter(m => m.who === 'me').reduce((s, m) => s + words(m.text), 0); }
 function counts(){ const n = totalWords(S.entries[editing]); $('#cWords').textContent = `${n} word${n === 1 ? '' : 's'}`; $('#finish').disabled = n < 1; $('#saveBtn').disabled = n < 1; const r = S.entries[editing].reflection; $('#finish').textContent = r && r.len === entryText(S.entries[editing]).length ? 'View reflection' : 'Reflect'; }
 function clockShow(){ const m = Math.floor(secs / 60), s = secs % 60; $('#clockT').textContent = `${m}:${String(s).padStart(2, '0')}`; $('#clock').classList.toggle('run', Date.now() - lastType < 60000); }
+/* follow-up questions while writing: after a pause, Clive offers one question built on what they just wrote */
+let fT, fBusy = false;
+async function suggestFollow(i){
+  const e = S.entries[editing]; if (!e || cur !== 'compose' || !SIGNED || fBusy) return;
+  const b = e.blocks[i]; if (!b || i !== e.blocks.length - 1 || b.fdis) return;
+  const n = words(b.text); if (n < 25 || (e.follows || 0) >= 3 || (b.fat && n < b.fat + 40) || CRISIS_RE.test(b.text)) return;
+  const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
+  fBusy = true; b.fat = n;
+  const earlier = e.blocks.slice(0, i).filter(x => x.text.trim()).map(x => (x.pid && ptext(x.pid) ? `Q: ${ptext(x.pid)}\n` : '') + MK.strip(x.text)).join('\n\n').slice(-2500);
+  const prompt = [earlier ? `Earlier in today's entry:\n${earlier}\n` : '', `The question they're answering now: ${b.pid && ptext(b.pid) ? ptext(b.pid) : '(writing freely)'}`, `What they've written so far:\n<<<\n${MK.strip(b.text).slice(-4000)}\n>>>`, 'Offer one follow-up question.'].join('\n');
+  try {
+    const r = await SAMPLE.json(prompt, { mode: 'follow' });
+    const q = r && typeof r.question === 'string' ? r.question.trim().slice(0, 200) : '';
+    if (!q || r.crisis || cur !== 'compose' || S.entries[editing] !== e || e.blocks.length - 1 !== i) return;
+    const box = document.createElement('div'); box.className = 'fsug';
+    box.innerHTML = `<div class="says">${MR}</div><p>${esc(q)}</p><div class="fact"><button type="button" class="chip fyes">Answer this</button><button type="button" class="link fno">Not now</button></div>`;
+    el.appendChild(box);
+    box.querySelector('.fyes').onclick = () => { const id = 'ai-f-' + editing + '-' + Date.now().toString(36); S.aiq = Object.assign({}, S.aiq, { [id]: q }); e.follows = (e.follows || 0) + 1; e.blocks.push({ pid: id, text: '' }); saveLocal(); renderCompose(); setTimeout(() => document.querySelector('.pblock:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); };
+    box.querySelector('.fno').onclick = () => { b.fdis = true; box.remove(); saveLocal(); };
+  } catch (err) {} finally { fBusy = false; }
+}
 let qT; function queue(){ clearTimeout(qT); qT = setTimeout(() => syncEntry(editing), 1200); saveLocal(); }
 function addNext(){
   const e = S.entries[editing], last = e.blocks[e.blocks.length - 1];

@@ -258,6 +258,13 @@ h1 em{font-style:italic;color:var(--pen)}
 .recap b{display:block;font:500 20px/1.2 var(--ask)}
 .recap span{font-size:12px;color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){.moment .mr svg{animation:none}}
+.thesis2 .t1{margin:0 0 30px}
+.thesis2 .t1 cite{display:block;font:500 13px/1 var(--brand);font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin-top:16px}
+.thesis2 .t2{font:500 clamp(20px,3vw,24px)/1.4 var(--ask);color:var(--ink)}
+.fsug{margin:14px 0 4px;padding:14px 16px;border-left:2px solid var(--ink);animation:fin .4s ease}
+.fsug p{font:500 18px/1.4 var(--ask);color:var(--ink);margin:6px 0 10px}
+.fsug .fact{display:flex;gap:14px;align-items:center}
+@keyframes fin{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
 </style>
 </head>
 <body>
@@ -304,8 +311,9 @@ h1 em{font-style:italic;color:var(--pen)}
   <!-- 5 · create account -->
   <section class="screen" id="s-account">
     <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 694 170"><path fill-rule="evenodd" d="M144.0 166.0C119.3 163.6 92.7 155.4 71.8 143.7C41.9 127.0 17.3 99.4 6.4 70.3C3.2 61.7 4.6 61.4 14.8 68.5C36.4 83.3 60.2 88.7 86.5 84.6C114.3 80.4 137.7 69.9 167.3 48.5C212.2 16.2 227.4 8.9 258.0 5.0C282.8 1.8 310.1 9.3 330.0 24.8C332.5 26.7 337.5 31.2 341.1 34.7L347.7 41.1 L353.6 35.3C387.8 1.1 435.1 -5.0 482.0 18.5C491.7 23.4 504.8 31.9 527.0 47.8C559.8 71.3 583.3 81.7 611.3 85.0C637.5 88.1 658.6 83.1 680.5 68.5C688.8 63.0 691.0 62.1 691.0 64.1C691.0 66.8 685.2 79.4 679.8 88.5C653.4 133.3 605.4 161.2 546.4 166.1C503.2 169.7 451.9 157.4 405.5 132.3C390.5 124.1 368.3 109.6 356.6 100.2L347.7 93.1 L345.1 95.0C306.0 125.1 272.1 143.1 231.5 155.5C202.4 164.4 169.1 168.4 144.0 166.0Z"/></svg></span></div>
-    <h1>Lock it in.</h1>
-    <p class="lede">Create your account and Mr Journal will read what you wrote. Your journal is encrypted in this browser with your password before it's saved. We never see your password, so we can never read your entries.</p>
+    <h1>Save and get custom insights.</h1>
+    <p class="lede">Create your account and Mr Journal will read what you wrote to help you go deeper.</p>
+    <p class="lede">Your journal is encrypted in this browser with your password before it's saved, so we can never read your entries.</p>
     <form id="accForm" autocomplete="on">
       <label class="flab" for="email">Email</label>
       <input class="field" id="email" type="email" autocomplete="email" placeholder="you@example.com" required>
@@ -405,9 +413,8 @@ h1 em{font-style:italic;color:var(--pen)}
   <section class="screen" id="s-thesis">
     <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 694 170"><path fill-rule="evenodd" d="M144.0 166.0C119.3 163.6 92.7 155.4 71.8 143.7C41.9 127.0 17.3 99.4 6.4 70.3C3.2 61.7 4.6 61.4 14.8 68.5C36.4 83.3 60.2 88.7 86.5 84.6C114.3 80.4 137.7 69.9 167.3 48.5C212.2 16.2 227.4 8.9 258.0 5.0C282.8 1.8 310.1 9.3 330.0 24.8C332.5 26.7 337.5 31.2 341.1 34.7L347.7 41.1 L353.6 35.3C387.8 1.1 435.1 -5.0 482.0 18.5C491.7 23.4 504.8 31.9 527.0 47.8C559.8 71.3 583.3 81.7 611.3 85.0C637.5 88.1 658.6 83.1 680.5 68.5C688.8 63.0 691.0 62.1 691.0 64.1C691.0 66.8 685.2 79.4 679.8 88.5C653.4 133.3 605.4 161.2 546.4 166.1C503.2 169.7 451.9 157.4 405.5 132.3C390.5 124.1 368.3 109.6 356.6 100.2L347.7 93.1 L345.1 95.0C306.0 125.1 272.1 143.1 231.5 155.5C202.4 164.4 169.1 168.4 144.0 166.0Z"/></svg></span></div>
     <div class="thesis2">
-      <p class="t1">Thinking is infinite.<br><u>Journaling is finite.</u></p>
-      <p>You can't understand until you see clearly.</p>
-      <p>Writing is the most precise way of thinking.</p>
+      <blockquote class="t1">“I always wrote things down so I could forget.”<cite>Matthew McConaughey</cite></blockquote>
+      <p class="t2">Writing is the most precise way of thinking.</p>
     </div>
     <button class="btn pen" id="beginBtn" type="button">Let's begin</button>
   </section>
