@@ -247,6 +247,7 @@ function crisisCard(){ const h = helpLines();
 // a plain-words backstop, in case the reflection doesn't flag it
 const CRISIS_RE = /\b(suicid\w*|kill(ing)? my ?self|end(ing)? (it all|my life)|want(ed)? to die|don'?t want to (live|be alive|be here)|self[- ]?harm\w*|hurt(ing)? my ?self|cut(ting)? my ?self|better off (dead|without me))\b/i;
 const DAY = 864e5;
+const PILOT = 14;
 function nudgeContext(){
   const now = Date.now(), log = (S.nudges || []);
   const thisEntry = log.some(n => n.day === editing && n.reflectedLen !== undefined && false);
@@ -323,7 +324,7 @@ function show(name){
   $('#cfoot').hidden = name !== 'compose';
   $('#outBtn').hidden = !SIGNED;
   window.scrollTo({ top: 0 });
-  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
+  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
 
 /* 1 · name */
@@ -409,7 +410,9 @@ function addNext(){
   setTimeout(() => document.querySelector('.pblock:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
 }
 function closeEntry(){ const e = S.entries[editing]; e.blocks = e.blocks.filter((b, i) => b.text.trim() || i === 0); e.updatedAt = Date.now(); clearTimeout(qT); syncEntry(editing); clearInterval(tick); }
-$('#saveBtn').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = false; show('account'); return; } toast('Saved.'); show('home'); };
+function pilotDue(){ return SIGNED && !S.pilotDone && Object.keys(S.entries).some(d => hasW(d) && challengeDay(d) >= PILOT); }
+function goHome(){ show(pilotDue() ? 'pilotend' : 'home'); }
+$('#saveBtn').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = false; show('account'); return; } toast('Saved.'); goHome(); };
 $('#finish').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = true; show('account'); } else show('reflect'); };
 
 /* 4 · reflection */
@@ -436,11 +439,16 @@ function paint(r){
     if (!(r.insights || []).length && !(r.questions || []).length) secs.splice(1); // safety reply: summary only
     $('#rBody').innerHTML = `<nav class="rnav" aria-label="Reflection sections">${secs.map(([k, l]) => `<a href="#rs-${k}" data-k="${k}">${l}</a>`).join('')}</nav>`
       + secs.map(([k, l, h]) => `<section class="rsec rs-${k}" id="rs-${k}"><h3>${l}</h3>${h}</section>`).join('')
+      + `<div class="rrate"><span>Was this useful?</span><button type="button" class="ic rup${r.vote === 1 ? ' on' : ''}" aria-label="Useful" aria-pressed="${r.vote === 1}">${ICON.up}</button><button type="button" class="ic rdn${r.vote === -1 ? ' on' : ''}" aria-label="Not useful" aria-pressed="${r.vote === -1}">${ICON.down}</button></div>`
       + (r.nudge && r.nudge.text ? `<section class="rsec rs-nudge"><p>${esc(r.nudge.text)}</p></section>` : '')
       + (more || canGo ? `<section class="rsec rs-deeper">${more ? '<h3>Going deeper</h3>' : ''}${more}${canGo ? `<button class="btn ghost deepbtn" id="goDeeper" type="button">Go deeper ↓</button>` : ''}</section>` : '')
       + `<section class="rsec rs-convo">${convoHTML()}</section>`;
     $('#rBody').querySelectorAll('.rnav a').forEach(a => a.onclick = ev => { ev.preventDefault(); document.getElementById('rs-' + a.dataset.k).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     if ($('#goDeeper')) $('#goDeeper').onclick = goDeeper;
+    const rate = v => { r.vote = r.vote === v ? 0 : v; $('.rup').classList.toggle('on', r.vote === 1); $('.rdn').classList.toggle('on', r.vote === -1); syncEntry(editing);
+      if (SIGNED) sb.from('reflection_votes').upsert({ user_id: USER.id, day: editing, vote: r.vote, had_nudge: !!(r.nudge && r.nudge.text), entry_words: totalWords(S.entries[editing]), deeper: (r.deeper || []).length, updated_at: new Date().toISOString() }).then(() => {}, () => {});
+      if (r.vote) toast(r.vote === 1 ? 'Thanks. Noted.' : 'Thanks. That helps Clive get better.'); };
+    $('.rup').onclick = () => rate(1); $('.rdn').onclick = () => rate(-1);
     wireReply();
     return; }
   if (r.text) {
@@ -504,7 +512,7 @@ function runStats(){
   const has = d => S.entries[d] && totalWords(S.entries[d]) > 0;
   let streak = 0; for (let d = T; has(d); d = addDays(d, -1)) streak++;
   const ents = Object.keys(S.entries).filter(has);
-  return { challenge_day: day, streak_days: streak, entries_total: ents.length, words_total: Object.values(S.entries).reduce((n, e) => n + totalWords(e), 0), milestone: [7, 15, 30].includes(day) ? day : null };
+  return { challenge_day: day, streak_days: streak, entries_total: ents.length, words_total: Object.values(S.entries).reduce((n, e) => n + totalWords(e), 0), milestone: [7, 14].includes(day) ? day : null };
 }
 async function goDeeper(){
   const e = S.entries[editing], r = e.reflection, btn = $('#goDeeper'); if (!r || !SAMPLE) return;
@@ -586,7 +594,7 @@ async function reflect(){
   }
 }
 $('#rBack').onclick = () => show('compose');
-$('#rNext').onclick = () => show('home');
+$('#rNext').onclick = () => goHome();
 
 /* 5 · account */
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) show(g.dataset.go); });
@@ -673,21 +681,61 @@ function renderPicks(){ document.querySelectorAll('#qOpts .opt').forEach(b => { 
 function next(){ const q = QS[qi]; S.answers[q.k] = q.multi ? pick : (pick[0] || null); syncProfile(); qi++; if (qi >= QS.length) show(Object.keys(S.entries).some(d => totalWords(S.entries[d]) > 0) ? 'home' : 'thesis'); else renderSetup(); }
 $('#qNext').onclick = next; $('#qSkip').onclick = () => { pick = []; next(); };
 
+/* 6c · end of the pilot */
+let fb = {};
+function renderPilotEnd(){
+  const ents = Object.keys(S.entries).filter(hasW), w = ents.reduce((n, d) => n + totalWords(S.entries[d]), 0), sec = Object.values(S.entries).reduce((n, e) => n + (e.seconds || 0), 0);
+  let best = 0, run = 0; ents.sort().forEach((d, i, a) => { run = i && addDays(a[i - 1], 1) === d ? run + 1 : 1; best = Math.max(best, run); });
+  $('#peTiles').innerHTML = [[ents.length, 'entries'], [w.toLocaleString('en-AU'), 'words'], [`${best} day${best === 1 ? '' : 's'}`, 'best streak']].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
+}
+$('#peGo').onclick = () => { fb = {}; show('survey'); };
+function renderSurvey(){
+  document.querySelectorAll('#s-survey [data-k]').forEach(b => b.classList.toggle('on', fb[b.dataset.k] === b.dataset.v));
+}
+document.querySelectorAll('#s-survey [data-k]').forEach(b => b.onclick = () => { fb[b.dataset.k] = b.dataset.v; renderSurvey(); });
+$('#svForm').onsubmit = async ev => { ev.preventDefault();
+  fb.liked = $('#svLiked').value.trim(); fb.suggestions = $('#svSugg').value.trim();
+  await saveFeedback(); show('offer'); };
+async function saveFeedback(extra = {}){
+  Object.assign(fb, extra); const ents = Object.keys(S.entries).filter(hasW);
+  try { await sb.from('pilot_feedback').upsert({ user_id: USER.id, overall: fb.overall ? +fb.overall : null, liked: fb.liked || null, useful: fb.useful || null, suggestions: fb.suggestions || null, would_pay: fb.pay || null, keep_going: fb.keep === undefined ? null : fb.keep, entries: ents.length, words: ents.reduce((n, d) => n + totalWords(S.entries[d]), 0), updated_at: new Date().toISOString() }); } catch(e){}
+}
+$('#ofYes').onclick = async () => { await saveFeedback({ keep: true }); S.pilotDone = true; S.keepGoing = true; saveLocal(); toast('Welcome aboard. Keep writing.'); show('home'); };
+$('#ofNo').onclick = async () => { await saveFeedback({ keep: false }); S.pilotDone = true; saveLocal(); show('home'); };
+
 /* 7 · home */
 let hq = null;
+function cell(d, label, T){ return `<button type="button" class="sq ${d > T ? 'fut' : hasW(d) ? 'ok' : 'miss'}${d === T ? ' now' : ''}" data-d="${d}" aria-label="${short(d)}: ${d > T ? 'to come' : hasW(d) ? 'written' : 'not written'}" ${d > T ? 'disabled' : ''}>${label}</button>`; }
+function challengeDay(T){ const st = S.start || T; return Math.max(1, Math.round((new Date(T + 'T12:00') - new Date(st + 'T12:00')) / 864e5) + 1); }
+const hasW = d => S.entries[d] && totalWords(S.entries[d]) > 0;
 function renderHome(){
   const T = today(), st = S.start || T;
-  const n = Math.min(30, Math.max(1, Math.round((new Date(T + 'T12:00') - new Date(st + 'T12:00')) / 864e5) + 1));
-  const days = Array.from({ length: 30 }, (_, i) => addDays(st, i));
-  const has = d => S.entries[d] && totalWords(S.entries[d]) > 0;
-  const done = days.filter(d => d <= T && has(d)).length;
+  const n = Math.min(PILOT, challengeDay(T)), after = challengeDay(T) > PILOT || S.pilotDone;
+  const has = hasW;
   let streak = 0; for (let d = has(T) ? T : addDays(T, -1); d >= st && has(d); d = addDays(d, -1)) streak++;
-  $('#hDay').textContent = days[29] < T ? 'Your 30 days are complete' : `Day ${n} of 30`;
+  let done, sq;
+  if (!after) {
+    const days = Array.from({ length: PILOT }, (_, i) => addDays(st, i));
+    done = days.filter(d => d <= T && has(d)).length;
+    $('#hDay').textContent = `Day ${n} of ${PILOT}`;
+    sq = `<div class="wk"><span class="wl">Week 1</span><div class="grid7">${days.slice(0, 7).map((d, i) => cell(d, i + 1, T)).join('')}</div></div><div class="wk"><span class="wl">Week 2</span><div class="grid7">${days.slice(7).map((d, i) => cell(d, i + 8, T)).join('')}</div></div>`;
+    $('#hStats').dataset.t = `${done} of ${n} day${n === 1 ? '' : 's'} written`;
+  } else {
+    // after the pilot: this week, Monday to Sunday, plus the weeks so far
+    const dow = (new Date(T + 'T12:00').getDay() + 6) % 7, mon = addDays(T, -dow);
+    const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+    done = week.filter(d => d <= T && has(d)).length;
+    const weeks = []; for (let w = 1; w <= 8; w++) { const m = addDays(mon, -7 * w); if (addDays(m, 6) < st) break; weeks.push([m, Array.from({ length: 7 }, (_, i) => addDays(m, i)).filter(has).length]); }
+    $('#hDay').textContent = `Week of ${short(mon)}`;
+    sq = `<div class="wk"><span class="wl">This week</span><div class="grid7">${week.map(d => cell(d, ['M', 'T', 'W', 'T', 'F', 'S', 'S'][(new Date(d + 'T12:00').getDay() + 6) % 7], T)).join('')}</div></div>`
+      + (weeks.length ? `<div class="pastw">${weeks.map(([m, c]) => `<div class="pw"><span>${short(m)}</span><i style="--f:${c / 7}"></i><b>${c}/7</b></div>`).join('')}</div>` : '');
+    $('#hStats').dataset.t = `${done} of ${dow + 1} day${dow ? 's' : ''} written this week`;
+  }
   $('#hTitle').textContent = has(T) ? `Done for today, ${S.name}.` : `Hi ${S.name}.`;
   $('#hSub').textContent = has(T) ? 'Come back tomorrow and keep the run going.' : 'A few minutes of writing is all today needs.';
-  $('#grid30').innerHTML = days.map((d, i) => `<button type="button" class="sq ${d > T ? 'fut' : has(d) ? 'ok' : 'miss'}${d === T ? ' now' : ''}" data-d="${d}" aria-label="Day ${i + 1}, ${short(d)}: ${d > T ? 'to come' : has(d) ? 'written' : 'not written'}" ${d > T ? 'disabled' : ''}>${i + 1}</button>`).join('');
+  $('#grid30').innerHTML = sq;
   document.querySelectorAll('#grid30 .sq:not([disabled])').forEach(b => b.onclick = () => openDay(b.dataset.d));
-  $('#hStats').textContent = `${done} of ${n} day${n === 1 ? '' : 's'} written`;
+  $('#hStats').textContent = $('#hStats').dataset.t;
   const allW = Object.values(S.entries).reduce((s, e) => s + totalWords(e), 0), allS = Object.values(S.entries).reduce((s, e) => s + (e.seconds || 0), 0);
   const tm = allS >= 3600 ? `${Math.floor(allS / 3600)}h ${Math.round((allS % 3600) / 60)}m` : `${Math.max(allS ? 1 : 0, Math.round(allS / 60))} min`;
   $('#hTiles').innerHTML = [[allW.toLocaleString('en-AU'), 'words written'], [tm, 'time writing'], [`${streak} day${streak === 1 ? '' : 's'}`, 'streak']].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
