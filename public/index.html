@@ -245,6 +245,19 @@ h1 em{font-style:italic;color:var(--pen)}
 .rrate .ic{border:1px solid var(--rule);background:var(--sheet);border-radius:999px;padding:6px 9px;color:var(--ink-2);display:inline-flex}
 .rrate .ic svg{width:14px;height:14px}
 .rrate .ic.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.moment{position:relative;margin-bottom:22px;padding-right:48px}
+.moment p{font:500 20px/1.4 var(--ask);margin:0;color:var(--ink)}
+.moment p.muted{font:400 15px/1.5 var(--write);color:var(--ink-3);margin-top:12px}
+.moment .says{margin-bottom:8px}
+.moment .mr svg{animation:twirl 1.4s ease .2s 1}
+@keyframes twirl{0%,100%{transform:rotate(0)}25%{transform:rotate(-8deg) scale(1.08)}50%{transform:rotate(6deg)}75%{transform:rotate(-3deg)}}
+.moment .mx{position:absolute;top:14px;right:14px;border:0;background:none;color:var(--ink-3);width:32px;height:32px;border-radius:50%;display:grid;place-items:center}
+.moment .mx svg{width:15px;height:15px}
+.recap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.recap div{background:var(--paper);border-radius:12px;padding:12px}
+.recap b{display:block;font:500 20px/1.2 var(--ask)}
+.recap span{font-size:12px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){.moment .mr svg{animation:none}}
 </style>
 </head>
 <body>
@@ -425,6 +438,7 @@ h1 em{font-style:italic;color:var(--pen)}
 
   <!-- 7 · home -->
   <section class="screen" id="s-home">
+    <div class="card moment" id="hMoment" hidden></div>
     <div class="day" id="hDay"></div>
     <div class="hhead"><h1 id="hTitle"></h1></div>
     <p class="lede" id="hSub" style="margin-bottom:0"></p>
