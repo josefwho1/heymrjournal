@@ -50,7 +50,7 @@ export default async (req) => {
     r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1500, system, messages: [{ role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, messages: [{ role: 'user', content: prompt }] })
     });
   } catch { return json({ error: 'upstream' }, 502); }
   if (r.status === 429 || r.status === 529) return json({ error: 'rate_limited' }, 429);
@@ -58,10 +58,11 @@ export default async (req) => {
 
   const d = await r.json();
   const text = (d.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+  const meta = { stop: d.stop_reason, out: d.usage && d.usage.output_tokens, types: (d.content || []).map(c => c.type) };
   const s = text.indexOf('{'), e = text.lastIndexOf('}');
   let out = null;
   try { out = JSON.parse(text.slice(s, e + 1)); } catch { out = { text: text.replace(/^```\w*|```$/g, '').trim(), questions: [] }; }
-  return json({ json: out });
+  return json({ json: out, meta });
 };
 
 export const config = { path: '/api/reflect' };
