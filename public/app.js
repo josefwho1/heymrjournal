@@ -190,7 +190,8 @@ function pushNow(){
 window.addEventListener('pagehide', () => { if (dirty) pushNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && dirty) pushNow(); });
 function syncEntry(d){ saveLocal(); if (d) syncStats(d); }
-function syncProfile(){ saveLocal(); if (!SIGNED) return; const a = S.answers || {}; sb.from('profiles').upsert({ user_id: USER.id, why: [].concat(a.why || []).join(', ') || null, topics: a.topics || [], heard: a.heard || null, start_day: S.start || null, updated_at: new Date().toISOString() }).then(() => {}, () => {}); }
+function syncProfile(){ saveLocal(); if (!SIGNED) return; const a = S.answers || {};
+  if (a.reminder) sb.from('profiles').upsert({ user_id: USER.id, reminder_time: a.reminder.time || 'none', reminder_added: a.reminder.added || null, time_zone: a.reminder.tz || null }).then(() => {}, () => {}); sb.from('profiles').upsert({ user_id: USER.id, why: [].concat(a.why || []).join(', ') || null, topics: a.topics || [], heard: a.heard || null, start_day: S.start || null, updated_at: new Date().toISOString() }).then(() => {}, () => {}); }
 // Plain numbers only: which question, how many words, how long. Never the words themselves.
 const statT = {};
 function syncStats(d){
@@ -321,7 +322,7 @@ function nudgeContext(){
   const lines = [];
   if (due) lines.push(`- Check-in due: on ${due.day} they said they planned to ${due.what} (${due.target}). Use the nudge for one gentle check-in about it, and set nudge.kind to "checkin".`);
   else if (week >= 2) lines.push('- Talk-to-someone nudge: NOT allowed this entry (two already this week). Return nudge as null.');
-  else if (log.some(n => n.day !== editing && now - n.at < 3 * DAY)) lines.push('- Talk-to-someone nudge: NOT allowed this entry (one was given in the last few days; give them space). Return nudge as null.');
+  else if (log.some(n => n.day !== editing && now - n.at < 1.5 * DAY)) lines.push('- Talk-to-someone nudge: NOT allowed this entry (one was given yesterday; give them space). Return nudge as null.');
   else lines.push(`- Talk-to-someone nudge: allowed if one of the triggers is met${resting.length ? `. Resting (don't raise): ${resting.join(', ')}` : ''}. Otherwise null.`);
   const pending = (S.plans || []).filter(p => !p.checked && now - p.at < 21 * DAY).map(p => p.target);
   if (pending.length) lines.push(`- They already plan to talk to: ${pending.join(', ')}. Don't nudge about these again before the check-in.`);
@@ -389,7 +390,7 @@ function show(name){
   $('#cfoot').hidden = name !== 'compose';
   $('#outBtn').hidden = !SIGNED;
   window.scrollTo({ top: 0 });
-  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
+  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, remind: renderRemind, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
 
 /* 1 · name */
@@ -743,7 +744,7 @@ function renderSetup(){
   $('#qNext').hidden = !q.multi; $('#qBack').onclick = () => { if (qi > 0) { qi--; renderSetup(); } else show('welcome'); };
 }
 function renderPicks(){ document.querySelectorAll('#qOpts .opt').forEach(b => { const on = pick.includes(b.dataset.v); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
-function next(){ const q = QS[qi]; S.answers[q.k] = q.multi ? pick : (pick[0] || null); syncProfile(); qi++; if (qi >= QS.length) show(Object.keys(S.entries).some(d => totalWords(S.entries[d]) > 0) ? 'home' : 'thesis'); else renderSetup(); }
+function next(){ const q = QS[qi]; S.answers[q.k] = q.multi ? pick : (pick[0] || null); syncProfile(); qi++; if (qi >= QS.length) { remindBack = 'thesis'; show(Object.keys(S.entries).some(d => totalWords(S.entries[d]) > 0) ? 'home' : 'remind'); } else renderSetup(); }
 $('#qNext').onclick = next; $('#qSkip').onclick = () => { pick = []; next(); };
 
 /* 6c · end of the pilot */
@@ -794,6 +795,34 @@ function renderMoment(){
   el.querySelector('.mx').onclick = () => { S.moments = Object.assign({}, S.moments, { [m.k]: Date.now() }); saveLocal(); renderMoment(); };
 }
 
+/* reminders: a daily calendar event the person adds themselves (works on phone and laptop, no app needed) */
+let remindBack = 'thesis', rTime = null;
+const fmtT = t => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+function renderRemind(){ rTime = (S.answers.reminder && S.answers.reminder.time) || null; paintRemind(); }
+function paintRemind(){
+  document.querySelectorAll('#rmOpts [data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === rTime || (b.dataset.t === 'custom' && rTime && ![...document.querySelectorAll('#rmOpts [data-t]')].some(x => x.dataset.t === rTime))));
+  $('#rmCustom').hidden = !(rTime && ![...document.querySelectorAll('#rmOpts [data-t]')].some(x => x.dataset.t === rTime)) && !$('#rmCustom').dataset.open;
+  $('#rmAdd').hidden = !rTime; if (rTime) $('#rmWhen').textContent = `Every day at ${fmtT(rTime)}`;
+}
+document.querySelectorAll('#rmOpts [data-t]').forEach(b => b.onclick = () => { if (b.dataset.t === 'custom') { $('#rmCustom').dataset.open = '1'; $('#rmCustom').hidden = false; $('#rmTime').focus(); rTime = $('#rmTime').value || null; } else { delete $('#rmCustom').dataset.open; rTime = b.dataset.t; } paintRemind(); });
+$('#rmTime').oninput = () => { rTime = $('#rmTime').value || null; paintRemind(); };
+function setReminder(added){ const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(e) { return ''; } })();
+  S.answers.reminder = { time: rTime, added: added || (S.answers.reminder && S.answers.reminder.time === rTime ? S.answers.reminder.added : null) || null, tz, at: Date.now() }; syncProfile(); }
+function firstAt(){ const [h, m] = rTime.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); return d; }
+const stamp = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
+const RM_TITLE = 'Journal with Mr Journal', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com';
+$('#rmApple').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000);
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mr Journal//Reminder//EN', 'BEGIN:VEVENT', `UID:mrjournal-${Date.now()}@heymrjournal.com`, `DTSTAMP:${stamp(new Date())}`,
+    `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Time to journal', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'mr-journal-reminder.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  setReminder('apple'); toast('Open the file to add it to your calendar.'); };
+$('#rmGoogle').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000); let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(x){}
+  const u = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(RM_TITLE) + '&details=' + encodeURIComponent(RM_DESC) + '&dates=' + stamp(d) + '/' + stamp(e) + (tz ? '&ctz=' + encodeURIComponent(tz) : '') + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
+  window.open(u, '_blank', 'noopener'); setReminder('google'); };
+$('#rmNext').onclick = () => { if (rTime) setReminder(); else { S.answers.reminder = { time: null, added: null, at: Date.now() }; syncProfile(); } show(remindBack); };
+$('#rmSkip').onclick = () => { S.answers.reminder = { time: null, added: null, at: Date.now() }; syncProfile(); show(remindBack); };
+
 /* 7 · home */
 let hq = null;
 function cell(d, label, T){ return `<button type="button" class="sq ${d > T ? 'fut' : hasW(d) ? 'ok' : 'miss'}${d === T ? ' now' : ''}" data-d="${d}" aria-label="${short(d)}: ${d > T ? 'to come' : hasW(d) ? 'written' : 'not written'}" ${d > T ? 'disabled' : ''}>${label}</button>`; }
@@ -828,6 +857,7 @@ function renderHome(){
   document.querySelectorAll('#grid30 .sq:not([disabled])').forEach(b => b.onclick = () => openDay(b.dataset.d));
   $('#hStats').textContent = $('#hStats').dataset.t;
   renderMoment();
+  $('#hRemind').hidden = !!(S.answers && S.answers.reminder && S.answers.reminder.time); $('#hRemind').onclick = () => { remindBack = 'home'; show('remind'); };
   const allW = Object.values(S.entries).reduce((s, e) => s + totalWords(e), 0), allS = Object.values(S.entries).reduce((s, e) => s + (e.seconds || 0), 0);
   const tm = allS >= 3600 ? `${Math.floor(allS / 3600)}h ${Math.round((allS % 3600) / 60)}m` : `${Math.max(allS ? 1 : 0, Math.round(allS / 60))} min`;
   $('#hTiles').innerHTML = [[allW.toLocaleString('en-AU'), 'words written'], [tm, 'time writing'], [`${streak} day${streak === 1 ? '' : 's'}`, 'streak']].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join('');
