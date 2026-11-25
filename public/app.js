@@ -132,6 +132,8 @@ const TOPICS = [['fam', 'Friends & Family'], ['rom', 'Romantic Relationships'], 
 const PMAP = Object.fromEntries(PROMPTS.map(p => [p.id, p]));
 const isAM = () => new Date().getHours() < 12;
 // Text of any question id: from the bank (morning/evening wording), or one Mr Journal wrote for this person ('ai-…').
+// The question as it was asked when they wrote (saved on the block), else the current wording.
+const qt = b => (b && (b.q || (b.pid ? ptext(b.pid) : ''))) || '';
 function ptext(pid){ if (!pid) return ''; const p = PMAP[pid]; if (p) return typeof p.t === 'string' ? p.t : (isAM() ? p.t.am : p.t.pm); return (S.aiq && S.aiq[pid]) || ''; }
 
 /* ---------- state ---------- */
@@ -388,9 +390,9 @@ function show(name){
   cur = name; if (!TRANSIENT.includes(name)) { S.step = name; if (name !== 'account') saveLocal(); }
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
   $('#cfoot').hidden = name !== 'compose';
-  $('#outBtn').hidden = !SIGNED;
+  $('#setBtn').hidden = !(SIGNED || (S.name && Object.keys(S.entries).length)) || name === 'settings';
   window.scrollTo({ top: 0 });
-  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, remind: renderRemind, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
+  ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, settings: renderSettings, remind: renderRemind, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
 
 /* 1 · name */
@@ -443,23 +445,23 @@ function renderCompose(){
   const e = S.entries[editing];
   e.blocks = e.blocks.filter((b, k, a) => b.text.trim() || k === a.length - 1); if (!e.blocks.length) e.blocks = [{ pid: pickPrompt(), text: '' }]; secs = e.seconds || 0;
   $('#cDate').textContent = nice(editing) + (editing === today() ? '' : '');
-  $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = b.pid && ptext(b.pid) ? ptext(b.pid) : null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
+  $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = qt(b) || null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
     return `<div class="pblock${p ? '' : ' free'}" data-i="${i}">${p && last ? `<div class="says">${MR}</div>` : ''}${p ? `<div class="phead"><h2 class="prompt">${esc(p)}</h2><button type="button" class="px" aria-label="Remove this question and write freely" title="Remove question">${ICON.x}</button></div>
       <div class="pacts"><button type="button" class="pu ic${v.v === 1 ? ' on' : ''}" aria-label="Thumbs up" aria-pressed="${v.v === 1}">${ICON.up}</button><button type="button" class="pdn ic${v.v === -1 ? ' on' : ''}" aria-label="Thumbs down" aria-pressed="${v.v === -1}">${ICON.down}</button>${last ? `<button type="button" class="pn" aria-label="Add the next question below">${ICON.next}<span>Next</span></button>` : ''}</div>` : (last ? `<div class="pacts"><button type="button" class="pn" aria-label="Add a question below">${ICON.next}<span>Add a question</span></button></div>` : '')}
       <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
-    t.addEventListener('input', () => { e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 6000); });
+    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 6000); });
     const pu = el.querySelector('.pu'), pdn = el.querySelector('.pdn');
     const setV = val => { const now = (S.votes[e.blocks[i].pid] || {}).v || 0; vote(e.blocks[i].pid, now === val ? 0 : val); const v2 = S.votes[e.blocks[i].pid].v; pu.classList.toggle('on', v2 === 1); pu.setAttribute('aria-pressed', v2 === 1); pdn.classList.toggle('on', v2 === -1); pdn.setAttribute('aria-pressed', v2 === -1); };
     if (pu) pu.onclick = () => setV(1); if (pdn) pdn.onclick = () => setV(-1);
-    const px = el.querySelector('.px'); if (px) px.onclick = () => { if (!e.blocks[i].text.trim() && e.blocks.length > 1) e.blocks.splice(i, 1); else e.blocks[i].pid = null; saveLocal(); renderCompose(); };
+    const px = el.querySelector('.px'); if (px) px.onclick = () => { if (!e.blocks[i].text.trim() && e.blocks.length > 1) e.blocks.splice(i, 1); else { e.blocks[i].pid = null; delete e.blocks[i].q; } saveLocal(); renderCompose(); };
     const pn = el.querySelector('.pn'); if (pn) pn.onclick = () => addNext(); });
   counts(); clockShow();
   const last = $('#blocks .pblock:last-child .wr'); if (last) setTimeout(() => caretToEnd(last), 80);
   clearInterval(tick); tick = setInterval(() => { if (cur !== 'compose') return; if (Date.now() - lastType < 60000) { secs++; e.seconds = secs; } clockShow(); }, 1000);
 }
-function swap(i){ const e = S.entries[editing]; const used = e.blocks.map(b => b.pid); e.blocks[i].pid = pickPrompt(used); saveLocal();
+function swap(i){ const e = S.entries[editing]; const used = e.blocks.map(b => b.pid); e.blocks[i].pid = pickPrompt(used); delete e.blocks[i].q; saveLocal();
   const el = document.querySelector(`.pblock[data-i="${i}"]`); const p = ptext(e.blocks[i].pid);
   el.querySelector('.prompt').textContent = p; el.querySelector('.wr').setAttribute('aria-label', p); el.querySelector('.pu').classList.remove('on'); }
 function vote(pid, val){ S.votes[pid] = { v: val, at: Date.now() }; voteRow(pid, val); S.voteLog = (S.voteLog || []).concat({ pid, v: val, day: editing, at: Date.now() }).slice(-500); syncVotes(); }
@@ -475,8 +477,8 @@ async function suggestFollow(i){
   const n = words(b.text); if (n < 25 || (e.follows || 0) >= 3 || (b.fat && n < b.fat + 40) || CRISIS_RE.test(b.text)) return;
   const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
   fBusy = true; b.fat = n;
-  const earlier = e.blocks.slice(0, i).filter(x => x.text.trim()).map(x => (x.pid && ptext(x.pid) ? `Q: ${ptext(x.pid)}\n` : '') + MK.strip(x.text)).join('\n\n').slice(-2500);
-  const prompt = [earlier ? `Earlier in today's entry:\n${earlier}\n` : '', `The question they're answering now: ${b.pid && ptext(b.pid) ? ptext(b.pid) : '(writing freely)'}`, `What they've written so far:\n<<<\n${MK.strip(b.text).slice(-4000)}\n>>>`, 'Offer one follow-up question.'].join('\n');
+  const earlier = e.blocks.slice(0, i).filter(x => x.text.trim()).map(x => (qt(x) ? `Q: ${qt(x)}\n` : '') + MK.strip(x.text)).join('\n\n').slice(-2500);
+  const prompt = [earlier ? `Earlier in today's entry:\n${earlier}\n` : '', `The question they're answering now: ${qt(b) || '(writing freely)'}`, `What they've written so far:\n<<<\n${MK.strip(b.text).slice(-4000)}\n>>>`, 'Offer one follow-up question.'].join('\n');
   try {
     const r = await SAMPLE.json(prompt, { mode: 'follow' });
     const q = r && typeof r.question === 'string' ? r.question.trim().slice(0, 200) : '';
@@ -492,7 +494,7 @@ let qT; function queue(){ clearTimeout(qT); qT = setTimeout(() => syncEntry(edit
 function addNext(){
   const e = S.entries[editing], last = e.blocks[e.blocks.length - 1];
   const used = e.blocks.map(b => b.pid).filter(Boolean);
-  if (!last.text.trim()) { last.pid = pickPrompt(used); saveLocal(); renderCompose(); return; } // nothing written yet: just change the question
+  if (!last.text.trim()) { last.pid = pickPrompt(used); delete last.q; saveLocal(); renderCompose(); return; } // nothing written yet: just change the question
   e.blocks.push({ pid: pickPrompt(used), text: '' }); saveLocal(); renderCompose();
   setTimeout(() => document.querySelector('.pblock:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
 }
@@ -504,11 +506,11 @@ $('#finish').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = tru
 
 /* 4 · reflection */
 function entryFull(e){ const base = entryText(e); const c = (e.convo || []).map(m => (m.who === 'me' ? 'Writer replied: ' : 'Mr Journal: ') + m.text).join('\n'); return c ? base + '\n\n' + c : base; }
-function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (b.pid && ptext(b.pid) ? `${ptext(b.pid)}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
+function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (qt(b) ? `${qt(b)}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
 function renderReflect(){
   const e = S.entries[editing], first = Object.keys(S.entries).length === 1;
   $('#rTitle').textContent = first ? `That's your first entry, ${S.name}.` : 'Here’s what I noticed.';
-  $('#rEntry').innerHTML = e.blocks.filter(b => b.text.trim()).map(b => `${b.pid && ptext(b.pid) ? `<span class="eq">${esc(ptext(b.pid))}</span>` : '<span style="display:block;height:10px"></span>'}${MK.render(b.text.trim())}`).join('');
+  $('#rEntry').innerHTML = e.blocks.filter(b => b.text.trim()).map(b => `${qt(b) ? `<span class="eq">${esc(qt(b))}</span>` : '<span style="display:block;height:10px"></span>'}${MK.render(b.text.trim())}`).join('');
   $('#rNext').textContent = 'Done';
   if (e.reflection && e.reflection.len === entryText(e).length) return paint(e.reflection);
   reflect();
@@ -746,13 +748,23 @@ $('#npForm').onsubmit = async e => { e.preventDefault(); const pw = $('#npIn').v
     toast('New password saved.'); await goIn();
   } catch (err) { toast(errMsg(err)); }
   busy($('#npForm'), false); };
-$('#outBtn').onclick = signOut;
+let setBack = 'home';
+$('#setBtn').onclick = () => { setBack = ['settings', 'remind'].includes(cur) ? 'home' : cur; show('settings'); };
+function renderSettings(){
+  $('#stName').textContent = S.name || '—';
+  $('#stEmail').textContent = SIGNED && USER ? USER.email : 'Not signed in yet';
+  const r = S.answers && S.answers.reminder; $('#stRemind').textContent = r && r.time ? 'Every day at ' + fmtT(r.time) : 'Off';
+  $('#stOut').hidden = !SIGNED;
+}
+$('#stBack').onclick = () => show(setBack === 'compose' && editing ? 'compose' : (setBack || 'home'));
+$('#stOut').onclick = signOut;
+$('#stRemindBtn').onclick = () => { remindBack = 'settings'; show('remind'); };
 // Export: decrypted here in the browser and saved straight to the person's device. Nothing is sent anywhere.
 function exportText(){
   const L = [`MR. JOURNAL: ${S.name || ''}`, `Exported ${new Date().toLocaleString('en-AU')}`, ''];
   Object.keys(S.entries).filter(hasW).sort().forEach(d => { const e = S.entries[d];
     L.push('='.repeat(48), new Date(d + 'T12:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), `${totalWords(e)} words · ${Math.round((e.seconds || 0) / 60)} min`, '');
-    (e.blocks || []).filter(b => (b.text || '').trim()).forEach(b => { if (b.pid && ptext(b.pid)) L.push('Q: ' + ptext(b.pid)); L.push(MK.strip(b.text).trim(), ''); });
+    (e.blocks || []).filter(b => (b.text || '').trim()).forEach(b => { if (qt(b)) L.push('Q: ' + qt(b)); L.push(MK.strip(b.text).trim(), ''); });
     const r = e.reflection;
     if (r && (r.summary || r.text)) { L.push('— Mr. Journal reflected —');
       if (r.summary) L.push('Summary: ' + r.summary);
@@ -763,7 +775,7 @@ function exportText(){
   });
   return L.join('\n');
 }
-$('#hExport').onclick = () => { const t = exportText(), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain;charset=utf-8' }));
+$('#stExport').onclick = () => { const t = exportText(), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain;charset=utf-8' }));
   a.download = `mr-journal-${(S.name || 'journal').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${today()}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('Your journal is downloading.'); };
 // "I'm new here": wipe everything this browser holds (any session, stored key, unsaved draft) and start completely fresh
 $('#inNew').onclick = async () => { try { await sb.auth.signOut(); } catch(e){} await keyClear();
@@ -829,7 +841,7 @@ function moment(){
   let best = 0, run = 0; ents.forEach((d, i) => { run = i && addDays(ents[i - 1], 1) === d ? run + 1 : 1; best = Math.max(best, run); });
   const M = S.memory || { people: {}, themes: {} };
   const top = Object.values(M.people).concat(Object.values(M.themes)).map(x => [x.name || x.label, (x.days || []).length]).sort((a, b) => b[1] - a[1])[0];
-  let bq = null; wk.forEach(d => (S.entries[d].blocks || []).forEach(b => { const w = words_(b.text); if (b.pid && ptext(b.pid) && (!bq || w > bq[1])) bq = [ptext(b.pid), w]; }));
+  let bq = null; wk.forEach(d => (S.entries[d].blocks || []).forEach(b => { const w = words_(b.text); if (qt(b) && (!bq || w > bq[1])) bq = [qt(b), w]; }));
   return { k: 'd7', html: `<p>One week. Seven entries.</p><div class="recap"><div><b>${ww.toLocaleString('en-AU')}</b><span>words this week</span></div><div><b>${best} day${best === 1 ? '' : 's'}</b><span>best streak</span></div>${top && top[1] > 1 ? `<div><b>${esc(top[0])}</b><span>came up most (${top[1]} entries)</span></div>` : ''}</div>${bq ? `<p class="muted">You wrote the most about: “${esc(bq[0])}”</p>` : ''}` };
 }
 const words_ = t => (MK.strip(t || '').match(/\S+/g) || []).length;
@@ -854,10 +866,10 @@ function setReminder(added){ const tz = (() => { try { return Intl.DateTimeForma
   S.answers.reminder = { time: rTime, added: added || (S.answers.reminder && S.answers.reminder.time === rTime ? S.answers.reminder.added : null) || null, tz, at: Date.now() }; syncProfile(); }
 function firstAt(){ const [h, m] = rTime.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); return d; }
 const stamp = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
-const RM_TITLE = 'Journal with Mr Journal', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com';
+const RM_TITLE = 'Journal with Mr Journal', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com/app';
 $('#rmApple').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000);
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mr Journal//Reminder//EN', 'BEGIN:VEVENT', `UID:mrjournal-${Date.now()}@heymrjournal.com`, `DTSTAMP:${stamp(new Date())}`,
-    `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com',
+    `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com/app',
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Time to journal', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'mr-journal-reminder.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   setReminder('apple'); toast('Open the file to add it to your calendar.'); };
