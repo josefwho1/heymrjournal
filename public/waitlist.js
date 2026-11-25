@@ -10,7 +10,7 @@
       btn.disabled = true; msg.textContent = 'Adding you…';
       fetch(URL_, { method: 'POST', headers: { apikey: KEY, authorization: 'Bearer ' + KEY, 'content-type': 'application/json', prefer: 'return=minimal' }, body: JSON.stringify({ email: email, source: source }) })
         .then(function (r) {
-          if (r.ok || r.status === 409) { msg.textContent = r.status === 409 ? 'You’re already on the list. We’ll be in touch.' : 'You’re on the list. Clive will be in touch.'; input.value = ''; }
+          if (r.ok || r.status === 409) { msg.textContent = r.status === 409 ? 'You’re already on the list. We’ll be in touch.' : 'You’re on the list. We’ll be in touch soon.'; input.value = ''; }
           else throw new Error(r.status);
         })
         .catch(function () { msg.textContent = 'Something went wrong. Try again, or email hello@heymrjournal.com.'; btn.disabled = false; });
