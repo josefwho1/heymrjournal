@@ -817,7 +817,7 @@ $('#inNew').onclick = async () => { try { await sb.auth.signOut(); } catch(e){} 
 
 /* 6 · setup */
 const QS = [
-  { k: 'why', t: 'What brings you here?', s: 'Choose any that apply.', multi: true, o: ['Clear my head', 'Understand myself better', 'Work through something', 'Navigate a big change', 'Build a daily habit', 'Just curious'] },
+  { k: 'why', t: 'What brings you here?', s: 'Choose any that apply.', multi: true, o: ['I never know what to write', 'I want to understand myself better', 'I want to grow as a person', 'Something is on my mind', 'I’m going through a big change', 'I’ve tried journaling but never stuck with it', 'Just curious'] },
   { k: 'topics', t: 'What would you like to write about?', s: 'Choose any that apply. I’ll shape my questions around them.', multi: true, o: TOPICS }
 ];
 let qi = 0, pick = [];
