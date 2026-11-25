@@ -855,7 +855,7 @@ async function saveFeedback(extra = {}){
   try { await sb.from('pilot_feedback').upsert({ user_id: USER.id, overall: fb.overall ? +fb.overall : null, liked: fb.liked || null, useful: fb.useful || null, suggestions: fb.suggestions || null, would_pay: fb.pay || null, keep_going: fb.keep === undefined ? null : fb.keep, entries: ents.length, words: ents.reduce((n, d) => n + totalWords(S.entries[d]), 0), updated_at: new Date().toISOString() }); } catch(e){}
 }
 // Founding-member checkout: paste the Stripe Payment Link here. Empty = old behaviour (just records a yes).
-const PAY_URL = '';
+const PAY_URL = 'https://buy.stripe.com/28E7sL2BA27Y0cF2SW4Vy02';
 $('#ofYes').onclick = async () => {
   await saveFeedback({ keep: true }); S.pilotDone = true; S.keepGoing = true; saveLocal();
   if (PAY_URL) { const u = new URL(PAY_URL); if (USER) { u.searchParams.set('client_reference_id', USER.id); if (USER.email) u.searchParams.set('prefilled_email', USER.email); } window.open(u.toString(), '_blank', 'noopener'); }
