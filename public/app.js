@@ -747,6 +747,24 @@ $('#npForm').onsubmit = async e => { e.preventDefault(); const pw = $('#npIn').v
   } catch (err) { toast(errMsg(err)); }
   busy($('#npForm'), false); };
 $('#outBtn').onclick = signOut;
+// Export: decrypted here in the browser and saved straight to the person's device. Nothing is sent anywhere.
+function exportText(){
+  const L = [`MR. JOURNAL: ${S.name || ''}`, `Exported ${new Date().toLocaleString('en-AU')}`, ''];
+  Object.keys(S.entries).filter(hasW).sort().forEach(d => { const e = S.entries[d];
+    L.push('='.repeat(48), new Date(d + 'T12:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), `${totalWords(e)} words · ${Math.round((e.seconds || 0) / 60)} min`, '');
+    (e.blocks || []).filter(b => (b.text || '').trim()).forEach(b => { if (b.pid && ptext(b.pid)) L.push('Q: ' + ptext(b.pid)); L.push(MK.strip(b.text).trim(), ''); });
+    const r = e.reflection;
+    if (r && (r.summary || r.text)) { L.push('— Mr. Journal reflected —');
+      if (r.summary) L.push('Summary: ' + r.summary);
+      (r.insights || []).forEach(x => L.push('Insight: ' + x)); (r.patterns || []).forEach(x => L.push('Pattern: ' + x)); (r.questions || []).forEach(x => L.push('Question: ' + x));
+      if (r.nudge && r.nudge.text) L.push('Nudge: ' + r.nudge.text);
+      (r.deeper || []).forEach(x => L.push('Going deeper: ' + x.text + (x.question ? ' ' + x.question : ''))); L.push(''); }
+    (e.convo || []).forEach(m => L.push((m.who === 'me' ? 'You: ' : 'Mr. Journal: ') + m.text)); if ((e.convo || []).length) L.push('');
+  });
+  return L.join('\n');
+}
+$('#hExport').onclick = () => { const t = exportText(), a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t], { type: 'text/plain;charset=utf-8' }));
+  a.download = `mr-journal-${(S.name || 'journal').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${today()}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('Your journal is downloading.'); };
 // "I'm new here": wipe everything this browser holds (any session, stored key, unsaved draft) and start completely fresh
 $('#inNew').onclick = async () => { try { await sb.auth.signOut(); } catch(e){} await keyClear();
   ['hmj-draft', 'hmj-forgot', 'hmj-invite', 'fj-state'].forEach(k => store.del(k));
