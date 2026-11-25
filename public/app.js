@@ -519,24 +519,40 @@ function entryFull(e){ const base = entryText(e); const c = (e.convo || []).map(
 function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (qt(b) ? `${qt(b)}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
 function renderReflect(){
   const e = S.entries[editing], first = Object.keys(S.entries).length === 1;
-  $('#rTitle').textContent = first ? `That's your first entry, ${S.name}.` : 'Here’s what I noticed.';
+  const praise = ['Nice entry', 'Good work', 'Well written', 'Nicely done', 'Good one'];
+  const seed = [...editing].reduce((a, c) => a + c.charCodeAt(0), 0);
+  $('#rTitle').textContent = first ? `That's your first entry, ${S.name}.` : `${praise[seed % praise.length]}, ${S.name}.`;
+  const nW = totalWords(e), mins = Math.max(1, Math.round((e.seconds || 0) / 60)), dn = challengeDay(editing);
+  $('#rStats').innerHTML = `<span><b>${nW.toLocaleString('en-AU')}</b> words</span><span><b>${mins}</b> min</span>${dn <= PILOT ? `<span>Day <b>${dn}</b> of ${PILOT}</span>` : ''}`;
+  thinking(false);
   $('#rEntry').innerHTML = e.blocks.filter(b => b.text.trim()).map(b => `${qt(b) ? `<span class="eq">${esc(qt(b))}</span>` : '<span style="display:block;height:10px"></span>'}${MK.render(b.text.trim())}`).join('');
   $('#rNext').textContent = 'Done';
   if (e.reflection && e.reflection.len === entryText(e).length) return paint(e.reflection);
   reflect();
 }
+// Clive "thinking" while the reflection loads: a twirling moustache and a few rotating lines
+let thinkT = null;
+const THINK = ['Give me a moment while I read…', 'Reading what you wrote…', 'Looking back at your earlier entries…', 'Connecting a few dots…', 'Thinking it over…', 'Nearly there…'];
+function thinking(on){
+  clearInterval(thinkT); const head = $('#rHead'); head.classList.toggle('thinking', on);
+  if (!on) { $('#rSays').textContent = 'Here’s what I noticed.'; return; }
+  let k = 0; $('#rSays').textContent = THINK[0]; $('#rBody').innerHTML = '<div class="thinkdots" aria-hidden="true"><i></i><i></i><i></i></div>';
+  thinkT = setInterval(() => { k = Math.min(k + 1, THINK.length - 1); $('#rSays').textContent = THINK[k]; }, 2600);
+}
 // Mr Journal's persona (the TherAIpist brief) lives on the server, so it is added to every request there.
 function paint(r){
+  thinking(false);
   if (r.summary !== undefined) {
     const more = (r.deeper || []).map(d => `<div class="deep"><p>${esc(d.text)}</p>${d.question ? `<p class="rq">${esc(d.question)}</p>` : ''}</div>`).join('');
     const canGo = !r.crisis && r.question && (r.deeper || []).length < 3 && !(r.deeper || []).some(d => !d.question);
-    if (r.crisis) { $('#rBody').innerHTML = `<section class="rsec rs-summary"><p>${esc(r.summary)}</p></section>` + crisisCard() + `<section class="rsec rs-convo">${convoHTML()}</section>`; wireReply(); return; }
+    if (r.crisis) { $('#rSays').textContent = 'I’m really glad you wrote this down.'; $('#rBody').innerHTML = `<section class="rsec rs-summary"><p>${esc(r.summary)}</p></section>` + crisisCard() + `<section class="rsec rs-convo">${convoHTML()}</section>`; wireReply(); return; }
+    const nPast = Object.keys(S.entries).filter(d => d < editing && hasW(d)).length;
     const secs = [['summary', 'Summary', r.summary ? `<p>${esc(r.summary)}</p>` : ''],
       ['insights', 'Insights', (r.insights || []).length ? `<ul>${r.insights.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''],
-      ['patterns', 'Patterns', (r.patterns || []).length ? `<ul>${r.patterns.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">Patterns show up once you’ve written a few entries.</p>`],
+      ['patterns', 'Patterns', (r.patterns || []).length ? `<ul>${r.patterns.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p class="muted">${nPast ? `Nothing that clearly connects to your earlier entries yet. I’m keeping an eye out; patterns get sharper with every entry.` : `Patterns start to show from your second entry, as I can compare days.`}</p>`],
       ['questions', 'Questions', (r.questions || []).length ? `<ol class="qs">${r.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol>` : '']].filter(x => x[2]);
     if (!(r.insights || []).length && !(r.questions || []).length) secs.splice(1); // safety reply: summary only
-    $('#rBody').innerHTML = `<nav class="rnav" aria-label="Reflection sections">${secs.map(([k, l]) => `<a href="#rs-${k}" data-k="${k}">${l}</a>`).join('')}</nav>`
+    $('#rBody').innerHTML = (r.seen ? `<p class="rseen">${esc(r.seen)}</p>` : '') + `<nav class="rnav" aria-label="Reflection sections">${secs.map(([k, l]) => `<a href="#rs-${k}" data-k="${k}">${l}</a>`).join('')}</nav>`
       + secs.map(([k, l, h]) => `<section class="rsec rs-${k}" id="rs-${k}"><h3>${l}</h3>${h}</section>`).join('')
       + `<div class="rrate"><span>Was this useful?</span><button type="button" class="ic rup${r.vote === 1 ? ' on' : ''}" aria-label="Useful" aria-pressed="${r.vote === 1}">${ICON.up}</button><button type="button" class="ic rdn${r.vote === -1 ? ' on' : ''}" aria-label="Not useful" aria-pressed="${r.vote === -1}">${ICON.down}</button></div>`
       + (r.nudge && r.nudge.text ? `<section class="rsec rs-nudge"><p>${esc(r.nudge.text)}</p></section>` : '')
@@ -640,7 +656,7 @@ function surveyLine(){ const a = S.answers || {}; const why = [].concat(a.why ||
 async function reflect(){
   const e = S.entries[editing], text = entryText(e);
   if (!SIGNED) { pendingReflect = true; show('account'); return; }
-  $('#rBody').innerHTML = `<p class="wait">Reading what you wrote…</p>`;
+  thinking(true);
   const stats = runStats(), n = totalWords(e), NC = nudgeContext();
   const prompt = [
     'CONTEXT FOR THIS REPLY',
@@ -655,16 +671,17 @@ async function reflect(){
     `TODAY'S ENTRY (${editing}):`, '<<<', text.slice(0, 7000), '>>>',
     '',
     'FORMAT FOR THIS REFLECTION: keep it short and scannable. It is shown in four separate sections, so put each thing in its section and do not repeat yourself across sections.',
+    '- seen: one or two sentences that help them feel genuinely heard. Name, accurately and specifically, what they are feeling, carrying or doing, in their own words where you can: the effort, the honesty, what is hard about it, or what they handled well. Validate the experience, never the verdict: acknowledge how it feels without agreeing with conclusions you cannot know (about themselves or other people). No flattery, no "great job", no cheerleading. If they were hard on themselves, you can name that gently without arguing.',
     '- summary: one or two plain sentences reflecting the core of what they wrote, using a short phrase of theirs where it fits.',
     '- insights: one to three short points (each under 25 words) on what stands out today: a tension, a shift, something they saw clearly, honest pushback if earned.',
-    '- patterns: zero to two short points (each under 30 words) linking today to earlier entries, citing dates. Only a pattern that appears in at least three entries. If there is none yet, return an empty list. Never invent one.',
+    '- patterns: zero to two short points (each under 30 words) linking today to earlier entries, citing dates. From their second entry on, a real echo between today and one earlier entry counts: name it as an echo ("this is the second time…"). Call something a pattern only when it appears in three or more entries. Use only the counts and passages given. If nothing genuinely connects yet, return an empty list. Never invent one.',
     '- questions: one to three short open questions.',
     '- next: one light, inviting question to open their next entry, building on something they wrote today. Easy to start answering. Not heavy, not a repeat of the questions above.',
     '- nudge: null, or one talk-to-someone question following the rules and the limits above: {"kind":"person|topic|alone|reach_out|therapy|checkin","target":"who or what, in 1 to 3 words","text":"the question"}.',
     '- plan: null, or if today they say they intend to talk to or contact someone: {"target":"who","what":"what they plan, in a few words"}.',
     '- crisis: true only under the crisis protocol, otherwise false.',
     memoryAsk(),
-    'Return ONLY JSON: {"summary":"…","insights":["…"],"patterns":["…"],"questions":["…"],"next":"…","nudge":null,"plan":null,"crisis":false,"memory":{…}}. If you have stepped out of the mirror for safety, put your whole response in summary and leave the lists empty.'
+    'Return ONLY JSON: {"seen":"…","summary":"…","insights":["…"],"patterns":["…"],"questions":["…"],"next":"…","nudge":null,"plan":null,"crisis":false,"memory":{…}}. If you have stepped out of the mirror for safety, put your whole response in summary and leave the lists empty.'
   ].join('\n');
   try {
     const r = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
@@ -684,9 +701,10 @@ async function reflect(){
     e.crisis = crisis;
     if (!crisis) memMerge(editing, r.memory);
     if (!crisis && r.next && typeof r.next === 'string') { const id = 'ai-' + editing; S.aiq = Object.assign({}, S.aiq, { [id]: String(r.next).slice(0, 240) }); S.nextQ = { id, from: editing }; }
-    e.reflection = { summary, insights: crisis ? [] : ins, patterns: crisis ? [] : pat, questions: crisis ? [] : qs, question: crisis ? '' : (qs[0] || ''), nudge, crisis, text: [summary].concat(ins, pat).join('\n'), len: text.length, at: Date.now() };
+    e.reflection = { seen: crisis ? '' : String(r.seen || '').slice(0, 500), summary, insights: crisis ? [] : ins, patterns: crisis ? [] : pat, questions: crisis ? [] : qs, question: crisis ? '' : (qs[0] || ''), nudge, crisis, text: [summary].concat(ins, pat).join('\n'), len: text.length, at: Date.now() };
     syncEntry(editing); if (cur === 'reflect') paint(e.reflection);
   } catch (err) {
+    thinking(false); $('#rSays').textContent = 'Hmm.';
     if (err && err.code === 'not_invited') { $('#rBody').innerHTML = `<p class="wait">Reflections are for pilot members. Enter your invite code to unlock them.</p><form id="joinForm" class="row"><input class="field" id="joinIn" placeholder="Invite code" autocapitalize="characters" style="max-width:240px;margin:0"><button class="btn pen" type="submit">Join</button></form>`;
       $('#joinForm').onsubmit = async ev => { ev.preventDefault(); const { data } = await sb.rpc('redeem_invite', { p_code: $('#joinIn').value }); if (data) { toast('You’re in.'); reflect(); } else toast('That code isn’t valid or has been used up.'); }; return; }
     $('#rBody').innerHTML = `<p class="wait">${err && err.code === 'not_invited' ? 'Reflections are open to pilot testers only. Ask Josef to add your email.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your entry is safe; try again in a minute.' : 'I couldn’t reflect on this just now. Your entry is safe.'}</p>`;

@@ -191,7 +191,7 @@ h1 em{font-style:italic;color:var(--pen)}
 .field.code{font:600 24px/1 ui-monospace,Menlo,monospace;letter-spacing:.3em;max-width:240px}
 .busy{opacity:.6;pointer-events:none}
 #outBtn{background:none;border:0;font:inherit;font-size:12px;color:var(--ink-3);cursor:pointer;margin-left:14px}
-.refl:has(.rsec){border-left:0;padding:0}
+.refl:has(.rsec),.refl:has(.thinkdots){border-left:0;padding:0}
 .rnav{position:sticky;top:0;z-index:3;display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;margin:0 0 6px;background:var(--paper)}
 .rnav a{font:500 13px/1 var(--ui);color:var(--ink-2);text-decoration:none;padding:8px 12px;border-radius:999px;background:var(--sheet)}
 .rnav a:hover{color:var(--ink)}
@@ -277,6 +277,21 @@ h1 em{font-style:italic;color:var(--pen)}
 .sv{display:flex;gap:16px;align-items:center;font-size:15px;color:var(--ink);flex-wrap:wrap}
 .sv .link{font-size:14px}
 [hidden]{display:none!important}
+.rstats{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 22px}
+.rstats span{font:500 13px var(--ui);color:var(--ink-2);background:var(--sheet);border-radius:999px;padding:7px 13px}
+.rstats b{font-weight:600;color:var(--ink)}
+.mjhead{display:flex;align-items:center;gap:14px;margin:34px 0 14px}
+.mjhead .says{margin:0}
+.mjhead p{margin:0;font:500 20px/1.3 var(--ask);color:var(--ink)}
+.mjhead.thinking .mr svg{animation:twirl2 1.6s ease-in-out infinite}
+.mjhead.thinking p{color:var(--ink-2)}
+@keyframes twirl2{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg) scale(1.08)}50%{transform:rotate(0) scale(1)}75%{transform:rotate(10deg) scale(1.08)}}
+.thinkdots{display:flex;gap:6px;padding:8px 0 4px}
+.thinkdots i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);animation:td 1.2s ease-in-out infinite}
+.thinkdots i:nth-child(2){animation-delay:.15s}.thinkdots i:nth-child(3){animation-delay:.3s}
+@keyframes td{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.rseen{font:400 21px/1.5 var(--ask);color:var(--ink);margin:0 0 18px}
+@media (prefers-reduced-motion:reduce){.mjhead.thinking .mr svg,.thinkdots i{animation:none}}
 </style>
 </head>
 <body>
@@ -313,9 +328,10 @@ h1 em{font-style:italic;color:var(--pen)}
 
   <!-- 4 · reflection -->
   <section class="screen" id="s-reflect">
-    <div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 694 170"><path fill-rule="evenodd" d="M144.0 166.0C119.3 163.6 92.7 155.4 71.8 143.7C41.9 127.0 17.3 99.4 6.4 70.3C3.2 61.7 4.6 61.4 14.8 68.5C36.4 83.3 60.2 88.7 86.5 84.6C114.3 80.4 137.7 69.9 167.3 48.5C212.2 16.2 227.4 8.9 258.0 5.0C282.8 1.8 310.1 9.3 330.0 24.8C332.5 26.7 337.5 31.2 341.1 34.7L347.7 41.1 L353.6 35.3C387.8 1.1 435.1 -5.0 482.0 18.5C491.7 23.4 504.8 31.9 527.0 47.8C559.8 71.3 583.3 81.7 611.3 85.0C637.5 88.1 658.6 83.1 680.5 68.5C688.8 63.0 691.0 62.1 691.0 64.1C691.0 66.8 685.2 79.4 679.8 88.5C653.4 133.3 605.4 161.2 546.4 166.1C503.2 169.7 451.9 157.4 405.5 132.3C390.5 124.1 368.3 109.6 356.6 100.2L347.7 93.1 L345.1 95.0C306.0 125.1 272.1 143.1 231.5 155.5C202.4 164.4 169.1 168.4 144.0 166.0Z"/></svg></span></div>
-    <h1 id="rTitle">Here's what I noticed.</h1>
+    <h1 id="rTitle">Nice entry.</h1>
+    <div class="rstats" id="rStats"></div>
     <div class="entryRead" id="rEntry"></div>
+    <div class="mjhead" id="rHead"><div class="says"><span class="mr" aria-hidden="true"><svg viewBox="0 0 694 170"><path fill-rule="evenodd" d="M144.0 166.0C119.3 163.6 92.7 155.4 71.8 143.7C41.9 127.0 17.3 99.4 6.4 70.3C3.2 61.7 4.6 61.4 14.8 68.5C36.4 83.3 60.2 88.7 86.5 84.6C114.3 80.4 137.7 69.9 167.3 48.5C212.2 16.2 227.4 8.9 258.0 5.0C282.8 1.8 310.1 9.3 330.0 24.8C332.5 26.7 337.5 31.2 341.1 34.7L347.7 41.1 L353.6 35.3C387.8 1.1 435.1 -5.0 482.0 18.5C491.7 23.4 504.8 31.9 527.0 47.8C559.8 71.3 583.3 81.7 611.3 85.0C637.5 88.1 658.6 83.1 680.5 68.5C688.8 63.0 691.0 62.1 691.0 64.1C691.0 66.8 685.2 79.4 679.8 88.5C653.4 133.3 605.4 161.2 546.4 166.1C503.2 169.7 451.9 157.4 405.5 132.3C390.5 124.1 368.3 109.6 356.6 100.2L347.7 93.1 L345.1 95.0C306.0 125.1 272.1 143.1 231.5 155.5C202.4 164.4 169.1 168.4 144.0 166.0Z"/></svg></span></div><p id="rSays">Here’s what I noticed.</p></div>
     <div class="refl" id="rBody"></div>
     <div class="row"><button class="btn pen" id="rNext" type="button">Keep this entry</button><button class="btn ghost" id="rBack" type="button">Back to writing</button></div>
   </section>
