@@ -451,7 +451,7 @@ function renderCompose(){
       <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
-    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 6000); });
+    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), e.fOffered ? 15000 : 10000); });
     const pu = el.querySelector('.pu'), pdn = el.querySelector('.pdn');
     const setV = val => { const now = (S.votes[e.blocks[i].pid] || {}).v || 0; vote(e.blocks[i].pid, now === val ? 0 : val); const v2 = S.votes[e.blocks[i].pid].v; pu.classList.toggle('on', v2 === 1); pu.setAttribute('aria-pressed', v2 === 1); pdn.classList.toggle('on', v2 === -1); pdn.setAttribute('aria-pressed', v2 === -1); };
     if (pu) pu.onclick = () => setV(1); if (pdn) pdn.onclick = () => setV(-1);
@@ -471,12 +471,22 @@ function counts(){ const n = totalWords(S.entries[editing]); $('#cWords').textCo
 function clockShow(){ const m = Math.floor(secs / 60), s = secs % 60; $('#clockT').textContent = `${m}:${String(s).padStart(2, '0')}`; $('#clock').classList.toggle('run', Date.now() - lastType < 60000); }
 /* follow-up questions while writing: after a pause, Clive offers one question built on what they just wrote */
 let fT, fBusy = false;
-async function suggestFollow(i){
+async function suggestFollow(i, ask = false){
   const e = S.entries[editing]; if (!e || cur !== 'compose' || !SIGNED || fBusy) return;
   const b = e.blocks[i]; if (!b || i !== e.blocks.length - 1 || b.fdis) return;
-  const n = words(b.text); if (n < 25 || (e.follows || 0) >= 3 || (b.fat && n < b.fat + 40) || CRISIS_RE.test(b.text)) return;
+  const n = words(b.text); if ((e.follows || 0) >= 3 || CRISIS_RE.test(b.text)) return;
+  if (!ask && (e.fOffered ? (n < 10 || (b.fat && n < b.fat + 15)) : n < 25)) return;
   const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
-  fBusy = true; b.fat = n;
+  if (e.fOffered && !ask) {
+    // after the first, Clive just asks quietly whether they'd like another
+    b.fat = n; const box = document.createElement('div'); box.className = 'fsug quiet';
+    box.innerHTML = `<div class="fact"><span class="flab2">Clive</span><span class="fq">Would you like another question?</span><button type="button" class="chip fyes">Yes please</button><button type="button" class="link fno">No thanks</button></div>`;
+    el.appendChild(box);
+    box.querySelector('.fyes').onclick = () => { box.remove(); suggestFollow(i, true); };
+    box.querySelector('.fno').onclick = () => { b.fdis = true; box.remove(); saveLocal(); };
+    return;
+  }
+  fBusy = true; b.fat = n; e.fOffered = true;
   const earlier = e.blocks.slice(0, i).filter(x => x.text.trim()).map(x => (qt(x) ? `Q: ${qt(x)}\n` : '') + MK.strip(x.text)).join('\n\n').slice(-2500);
   const prompt = [earlier ? `Earlier in today's entry:\n${earlier}\n` : '', `The question they're answering now: ${qt(b) || '(writing freely)'}`, `What they've written so far:\n<<<\n${MK.strip(b.text).slice(-4000)}\n>>>`, 'Offer one follow-up question.'].join('\n');
   try {
