@@ -854,7 +854,13 @@ async function saveFeedback(extra = {}){
   Object.assign(fb, extra); const ents = Object.keys(S.entries).filter(hasW);
   try { await sb.from('pilot_feedback').upsert({ user_id: USER.id, overall: fb.overall ? +fb.overall : null, liked: fb.liked || null, useful: fb.useful || null, suggestions: fb.suggestions || null, would_pay: fb.pay || null, keep_going: fb.keep === undefined ? null : fb.keep, entries: ents.length, words: ents.reduce((n, d) => n + totalWords(S.entries[d]), 0), updated_at: new Date().toISOString() }); } catch(e){}
 }
-$('#ofYes').onclick = async () => { await saveFeedback({ keep: true }); S.pilotDone = true; S.keepGoing = true; saveLocal(); toast('Welcome aboard. Keep writing.'); show('home'); };
+// Founding-member checkout: paste the Stripe Payment Link here. Empty = old behaviour (just records a yes).
+const PAY_URL = '';
+$('#ofYes').onclick = async () => {
+  await saveFeedback({ keep: true }); S.pilotDone = true; S.keepGoing = true; saveLocal();
+  if (PAY_URL) { const u = new URL(PAY_URL); if (USER) { u.searchParams.set('client_reference_id', USER.id); if (USER.email) u.searchParams.set('prefilled_email', USER.email); } window.open(u.toString(), '_blank', 'noopener'); }
+  toast('Welcome aboard. Keep writing.'); show('home'); };
+if (PAY_URL) { $('#ofNote').textContent = 'Payment is handled securely by Stripe. Cancel any time. Your journal stays yours either way.'; $('#ofYes').textContent = 'Become a founding member'; }
 $('#ofNo').onclick = async () => { await saveFeedback({ keep: false }); S.pilotDone = true; saveLocal(); show('home'); };
 
 /* moments: quiet milestones from Clive */
