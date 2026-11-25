@@ -385,12 +385,12 @@ async function signOut(){ try { await pushNow(); } catch(e){} await keyClear(); 
 
 /* ---------- screens ---------- */
 let cur = null;
-const TRANSIENT = ['signin', 'code', 'unlock', 'recovery', 'newpw'];
+const TRANSIENT = ['signin', 'code', 'unlock', 'recovery', 'newpw', 'settings'];
 function show(name){
   cur = name; if (!TRANSIENT.includes(name)) { S.step = name; if (name !== 'account') saveLocal(); }
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
   $('#cfoot').hidden = name !== 'compose';
-  $('#setBtn').hidden = !(SIGNED || (S.name && Object.keys(S.entries).length)) || name === 'settings';
+  $('#setBtn').hidden = !(SIGNED || (S.name && Object.keys(S.entries).length)); setIcon(name === 'settings');
   window.scrollTo({ top: 0 });
   ({ name: renderName, welcome: renderWelcome, compose: renderCompose, reflect: renderReflect, pilotend: renderPilotEnd, settings: renderSettings, remind: renderRemind, survey: renderSurvey, account: () => { $('#invite').value = $('#invite').value || store.get('hmj-invite') || ''; setTimeout(() => $('#email').focus(), 60); }, signin: () => setTimeout(() => $('#inEmail').focus(), 60), code: renderCode, unlock: renderUnlock, recovery: () => { $('#rcOk').checked = false; $('#rcGo').disabled = true; }, newpw: () => setTimeout(() => $('#npIn').focus(), 60), setup: renderSetup, home: renderHome })[name]?.();
 }
@@ -777,8 +777,12 @@ $('#npForm').onsubmit = async e => { e.preventDefault(); const pw = $('#npIn').v
   } catch (err) { toast(errMsg(err)); }
   busy($('#npForm'), false); };
 let setBack = 'home';
-$('#setBtn').onclick = () => { setBack = ['settings', 'remind'].includes(cur) ? 'home' : cur; show('settings'); };
+const ICO_GEAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const ICO_HOME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+function setIcon(home){ const b = $('#setBtn'); b.innerHTML = home ? ICO_HOME : ICO_GEAR; b.setAttribute('aria-label', home ? 'Home' : 'Settings'); b.dataset.home = home ? '1' : ''; }
+$('#setBtn').onclick = () => { if ($('#setBtn').dataset.home) { show(Object.keys(S.entries).some(hasW) ? 'home' : (setBack && setBack !== 'settings' ? setBack : 'welcome')); return; } setBack = ['settings', 'remind'].includes(cur) ? 'home' : cur; show('settings'); };
 function renderSettings(){
+  setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
   $('#stName').textContent = S.name || '—';
   $('#stEmail').textContent = SIGNED && USER ? USER.email : 'Not signed in yet';
   const r = S.answers && S.answers.reminder; $('#stRemind').textContent = r && r.time ? 'Every day at ' + fmtT(r.time) : 'Off';
@@ -894,15 +898,15 @@ function setReminder(added){ const tz = (() => { try { return Intl.DateTimeForma
   S.answers.reminder = { time: rTime, added: added || (S.answers.reminder && S.answers.reminder.time === rTime ? S.answers.reminder.added : null) || null, tz, at: Date.now() }; syncProfile(); }
 function firstAt(){ const [h, m] = rTime.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); return d; }
 const stamp = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
-const RM_TITLE = 'Journal with Mr Journal', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com/app';
+const RM_TITLE = 'Mr. Journal time', RM_URL = 'https://heymrjournal.com/app', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com/app';
 $('#rmApple').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000);
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mr Journal//Reminder//EN', 'BEGIN:VEVENT', `UID:mrjournal-${Date.now()}@heymrjournal.com`, `DTSTAMP:${stamp(new Date())}`,
-    `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com/app',
+    `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com/app', 'LOCATION:https://heymrjournal.com/app',
     'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Time to journal', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'mr-journal-reminder.ics'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
   setReminder('apple'); toast('Open the file to add it to your calendar.'); };
 $('#rmGoogle').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000); let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch(x){}
-  const u = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(RM_TITLE) + '&details=' + encodeURIComponent(RM_DESC) + '&dates=' + stamp(d) + '/' + stamp(e) + (tz ? '&ctz=' + encodeURIComponent(tz) : '') + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
+  const u = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(RM_TITLE) + '&details=' + encodeURIComponent(RM_DESC) + '&location=' + encodeURIComponent(RM_URL) + '&dates=' + stamp(d) + '/' + stamp(e) + (tz ? '&ctz=' + encodeURIComponent(tz) : '') + '&recur=' + encodeURIComponent('RRULE:FREQ=DAILY');
   window.open(u, '_blank', 'noopener'); setReminder('google'); };
 $('#rmNext').onclick = () => { if (rTime) setReminder(); else { S.answers.reminder = { time: null, added: null, at: Date.now() }; syncProfile(); } show(remindBack); };
 $('#rmSkip').onclick = () => { S.answers.reminder = { time: null, added: null, at: Date.now() }; syncProfile(); show(remindBack); };
@@ -959,9 +963,10 @@ $('#logoBtn').onclick = () => { if (cur === 'compose' && editing) { clearTimeout
 $('#banner').onclick = () => show('account');
 
 /* ---------- theme: dark by default, one tap flips it ---------- */
-function setTheme(t){ document.documentElement.setAttribute('data-theme', t); store.set('fj-theme', t); $('#themeBtn').setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'); }
+function setTheme(t){ document.documentElement.setAttribute('data-theme', t); store.set('fj-theme', t); document.querySelectorAll('[data-th]').forEach(b => { const on = b.dataset.th === t; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
+document.querySelectorAll('[data-th]').forEach(b => b.onclick = () => setTheme(b.dataset.th));
 setTheme(store.get('fj-theme') || 'dark');
-$('#themeBtn').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
 
 /* ---------- boot ---------- */
 function bootLocal(){
