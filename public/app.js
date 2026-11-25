@@ -216,7 +216,7 @@ const SAMPLE = {
   async json(prompt, opts = {}){
     const { data } = await sb.auth.getSession(); const t = data && data.session && data.session.access_token;
     if (!t) throw { code: 'not_signed_in' };
-    const call = () => fetch('/api/reflect', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ name: S.name || '', prompt, mode: opts.mode || 'reflect' }) });
+    const call = () => fetch('/api/reflect', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ name: S.name || '', prompt, tz: new Date().getTimezoneOffset(), mode: opts.mode || 'reflect' }) });
     let r; try { r = await call(); } catch (e) { r = { status: 599 }; }
     if (r.status >= 500) { await new Promise(res => setTimeout(res, 1500)); try { r = await call(); } catch (e) { r = { status: 599, ok: false }; } } // one quiet retry
     if (r.status === 429) { let j = {}; try { j = await r.json(); } catch (e) {} throw { code: j.error === 'daily_limit' ? 'daily_limit' : 'rate_limited' }; }
@@ -655,7 +655,7 @@ async function sendReply(){
     'Return ONLY JSON: {"text":"your reply, without a closing question","questions":["zero or one open question"]}'
   ].join('\n');
   try {
-    const d = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
+    const d = await SAMPLE.json(prompt, { mode: 'chat', modelTier: 'default', cache: false });
     const cm = cleanMsg(d.text); const qs = (Array.isArray(d.questions) && d.questions.length ? d.questions : (cm.questions || [])).map(q => String(q).slice(0, 300)).filter(Boolean).slice(0, 1);
     e.convo.push({ who: 'mr', text: cm.text.slice(0, 1600), questions: qs, at: Date.now() }); e.updatedAt = Date.now();
     syncEntry(editing); paint(r);
@@ -689,7 +689,7 @@ async function goDeeper(){
     'Return ONLY JSON: {"text":"the further reflection, without the question","question":"one open question, or an empty string if you have stepped out of the mirror for safety"}'
   ].join('\n');
   try {
-    const d = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
+    const d = await SAMPLE.json(prompt, { mode: 'chat', modelTier: 'default', cache: false });
     r.deeper = (r.deeper || []).concat({ text: String(d.text || '').slice(0, 1200), question: String(d.question || '').slice(0, 300), at: Date.now() });
     syncEntry(editing); paint(r);
     const last = document.querySelector('#rBody .deep:last-of-type'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' });

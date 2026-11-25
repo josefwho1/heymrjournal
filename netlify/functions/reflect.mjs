@@ -12,7 +12,8 @@ const BRIEF = "You are TherAIpist, known in the app as Mr Journal (your friends 
 // Follow-up questions asked while someone is writing: small, fast and cheap.
 const FOLLOW_MODEL = process.env.FOLLOW_MODEL || 'claude-haiku-5-5';
 // Per-person daily caps (UTC day). Far above normal use; they stop a bug or a heavy user from running up costs.
-const CAPS = { reflect: Number(process.env.CAP_REFLECT || 6), follow: Number(process.env.CAP_FOLLOW || 20) };
+// 'reflect' = full reflections; 'follow' = follow-up questions plus replies and go-deeper (short, cheap calls).
+const CAPS = { reflect: Number(process.env.CAP_REFLECT || 10), follow: Number(process.env.CAP_FOLLOW || 40) };
 const FOLLOW_SYSTEM = `You are Mr Journal (friends call you Clive), a calm, warm journalling companion who works like a mirror. While someone is mid-entry, you offer ONE short follow-up question that helps them go one step deeper into what they just wrote.
 Rules:
 - Build directly on their own words: a detail they mentioned, a feeling they named, something they skipped past, or what happened next.
@@ -95,16 +96,20 @@ export default async (req) => {
   const name = String(body.name || 'the writer').replace(/[^\p{L}\p{N} .'-]/gu, '').slice(0, 40) || 'the writer';
   if (!prompt || prompt.length > 80000) return json({ error: 'bad_request' }, 400);
 
-  // 3b. per-person daily cap (skipped for ALLOWED_EMAILS; if the usage table is missing, it lets the request through)
-  const kind = body.mode === 'follow' ? 'follow' : 'reflect';
-  if (!allow.includes(email)) {
-    const h = { authorization: auth, apikey: SUPABASE_KEY };
-    const since = new Date().toISOString().slice(0, 10) + 'T00:00:00Z';
+  // 3b. per-person daily cap, counted from the writer's own midnight (skipped for ALLOWED_EMAILS; fails open).
+  // Only successful calls are counted (recorded just before replying), so errors and retries don't use it up.
+  const kind = body.mode === 'follow' || body.mode === 'chat' ? 'follow' : 'reflect';
+  const capped = !allow.includes(email);
+  const uh = { authorization: auth, apikey: SUPABASE_KEY };
+  const record = async () => { if (!capped) return; try { await fetch(`${SUPABASE_URL}/rest/v1/ai_usage`, { method: 'POST', headers: { ...uh, 'content-type': 'application/json', prefer: 'return=minimal' }, body: JSON.stringify({ kind }) }); } catch {} };
+  if (capped) {
+    const tz = Math.max(-840, Math.min(840, Number(body.tz) || 0)); // minutes, as Date.getTimezoneOffset()
+    const local = new Date(Date.now() - tz * 60000); local.setUTCHours(0, 0, 0, 0);
+    const since = new Date(local.getTime() + tz * 60000).toISOString();
     try {
-      const c = await fetch(`${SUPABASE_URL}/rest/v1/ai_usage?select=id&kind=eq.${kind}&created_at=gte.${since}`, { method: 'HEAD', headers: { ...h, prefer: 'count=exact' } });
+      const c = await fetch(`${SUPABASE_URL}/rest/v1/ai_usage?select=id&kind=eq.${kind}&created_at=gte.${encodeURIComponent(since)}`, { method: 'HEAD', headers: { ...uh, prefer: 'count=exact' } });
       const n = c.ok ? Number((c.headers.get('content-range') || '').split('/')[1]) : NaN;
       if (n >= CAPS[kind]) return json({ error: 'daily_limit' }, 429);
-      if (c.ok) await fetch(`${SUPABASE_URL}/rest/v1/ai_usage`, { method: 'POST', headers: { ...h, 'content-type': 'application/json', prefer: 'return=minimal' }, body: JSON.stringify({ kind }) });
     } catch {}
   }
 
@@ -118,6 +123,7 @@ export default async (req) => {
     if (!fr.ok) { console.error('anthropic follow status', fr.status); return json({ error: 'upstream' }, 502); }
     const fd = await fr.json(); const ft = (fd.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
     const fo = parseJSONish(ft) || { question: null };
+    await record();
     return json({ json: fo, meta: { inp: fd.usage && fd.usage.input_tokens, out: fd.usage && fd.usage.output_tokens } });
   }
 
@@ -142,6 +148,7 @@ export default async (req) => {
   const meta = { stop: d.stop_reason, inp: d.usage && d.usage.input_tokens, out: d.usage && d.usage.output_tokens, types: (d.content || []).map(c => c.type) };
   let out = parseJSONish(text);
   if (!out) { console.error('unparseable reply', meta.stop); out = { text: text.replace(/```\w*|```/g, '').replace(/\n*Correction:[\s\S]*$/i, '').trim(), questions: [] }; }
+  await record();
   return json({ json: out, meta });
 };
 
