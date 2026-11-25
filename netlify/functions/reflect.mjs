@@ -26,6 +26,46 @@ Reply with JSON only: {"question": "...", "crisis": false}`;
 
 const OWNER_THREADS = "\nTHREADS THIS WRITER HAS ASKED YOU TO WATCH FOR (in his own words)\n- Avoidance: steering around the thing that matters.\n- Ideating instead of acting: a new idea arriving just as the last one needs doing.\n- Decision loops: weighing the same choice over and over.\n- \"Provide value or be left\": the belief that he has to earn his place with people.\nWhen one of these shows up, point to it with evidence and ask about it. Don't lecture.\n";
 
+// Lenient JSON reader for model replies: finds the first complete {...}, ignores text around it
+// (e.g. a stray "Correction:" line), and repairs common slips (\“ escapes, raw newlines inside strings).
+function repairJSON(c){
+  let out = '', inStr = false;
+  for (let i = 0; i < c.length; i++) {
+    const ch = c[i];
+    if (!inStr) { if (ch === '"') inStr = true; out += ch; continue; }
+    if (ch === '\\') {
+      const nx = c[i + 1];
+      if (nx !== undefined && '"\\/bfnrtu'.includes(nx)) { out += ch + nx; i++; }
+      // invalid escape (e.g. \“): drop the backslash, keep the character
+      continue;
+    }
+    if (ch === '"') { inStr = false; out += ch; continue; }
+    if (ch === '\n') { out += '\\n'; continue; }
+    if (ch === '\r') continue;
+    if (ch === '\t') { out += '\\t'; continue; }
+    if (ch < ' ') continue;
+    out += ch;
+  }
+  return out;
+}
+function parseJSONish(raw){
+  const t = String(raw || '').replace(/```(?:json)?/gi, '').trim();
+  const s = t.indexOf('{'); if (s < 0) return null;
+  let depth = 0, inStr = false, esc = false, end = -1;
+  for (let i = s; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true; else if (ch === '{') depth++; else if (ch === '}' && --depth === 0) { end = i; break; }
+  }
+  const cands = []; if (end > s) cands.push(t.slice(s, end + 1));
+  const le = t.lastIndexOf('}'); if (le > s) cands.push(t.slice(s, le + 1));
+  for (const c of cands) for (const v of [c, repairJSON(c)]) { try { const o = JSON.parse(v); if (o && typeof o === 'object') return o; } catch {} }
+  // last resort: pull out a "text" value and any questions
+  const m = t.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (m) { const un = x => x.replace(/\\(["\\\/])/g, '$1').replace(/\\n/g, '\n').replace(/\\[“”‘’]/g, y => y.slice(1)); const qs = [...t.matchAll(/"questions"\s*:\s*\[([^\]]*)\]/g)].flatMap(q => [...q[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(x => un(x[1]))); return { text: un(m[1]), questions: qs }; }
+  return null;
+}
+
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
 
 export default async (req) => {
@@ -77,7 +117,7 @@ export default async (req) => {
     if (fr.status === 429 || fr.status === 529) return json({ error: 'rate_limited' }, 429);
     if (!fr.ok) { console.error('anthropic follow status', fr.status); return json({ error: 'upstream' }, 502); }
     const fd = await fr.json(); const ft = (fd.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
-    let fo = null; try { fo = JSON.parse(ft.slice(ft.indexOf('{'), ft.lastIndexOf('}') + 1)); } catch { fo = { question: null }; }
+    const fo = parseJSONish(ft) || { question: null };
     return json({ json: fo, meta: { inp: fd.usage && fd.usage.input_tokens, out: fd.usage && fd.usage.output_tokens } });
   }
 
@@ -100,9 +140,8 @@ export default async (req) => {
   const d = await r.json();
   const text = (d.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
   const meta = { stop: d.stop_reason, inp: d.usage && d.usage.input_tokens, out: d.usage && d.usage.output_tokens, types: (d.content || []).map(c => c.type) };
-  const s = text.indexOf('{'), e = text.lastIndexOf('}');
-  let out = null;
-  try { out = JSON.parse(text.slice(s, e + 1)); } catch { out = { text: text.replace(/^```\w*|```$/g, '').trim(), questions: [] }; }
+  let out = parseJSONish(text);
+  if (!out) { console.error('unparseable reply', meta.stop); out = { text: text.replace(/```\w*|```/g, '').replace(/\n*Correction:[\s\S]*$/i, '').trim(), questions: [] }; }
   return json({ json: out, meta });
 };
 

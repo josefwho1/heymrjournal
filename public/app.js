@@ -518,6 +518,47 @@ $('#saveBtn').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = fa
 $('#finish').onclick = () => { closeEntry(); if (!SIGNED) { pendingReflect = true; show('account'); } else show('reflect'); };
 
 /* 4 · reflection */
+// Lenient JSON reader for model replies: finds the first complete {...}, ignores text around it
+// (e.g. a stray "Correction:" line), and repairs common slips (\“ escapes, raw newlines inside strings).
+function repairJSON(c){
+  let out = '', inStr = false;
+  for (let i = 0; i < c.length; i++) {
+    const ch = c[i];
+    if (!inStr) { if (ch === '"') inStr = true; out += ch; continue; }
+    if (ch === '\\') {
+      const nx = c[i + 1];
+      if (nx !== undefined && '"\\/bfnrtu'.includes(nx)) { out += ch + nx; i++; }
+      // invalid escape (e.g. \“): drop the backslash, keep the character
+      continue;
+    }
+    if (ch === '"') { inStr = false; out += ch; continue; }
+    if (ch === '\n') { out += '\\n'; continue; }
+    if (ch === '\r') continue;
+    if (ch === '\t') { out += '\\t'; continue; }
+    if (ch < ' ') continue;
+    out += ch;
+  }
+  return out;
+}
+function parseJSONish(raw){
+  const t = String(raw || '').replace(/```(?:json)?/gi, '').trim();
+  const s = t.indexOf('{'); if (s < 0) return null;
+  let depth = 0, inStr = false, esc = false, end = -1;
+  for (let i = s; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true; else if (ch === '{') depth++; else if (ch === '}' && --depth === 0) { end = i; break; }
+  }
+  const cands = []; if (end > s) cands.push(t.slice(s, end + 1));
+  const le = t.lastIndexOf('}'); if (le > s) cands.push(t.slice(s, le + 1));
+  for (const c of cands) for (const v of [c, repairJSON(c)]) { try { const o = JSON.parse(v); if (o && typeof o === 'object') return o; } catch {} }
+  // last resort: pull out a "text" value and any questions
+  const m = t.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (m) { const un = x => x.replace(/\\(["\\\/])/g, '$1').replace(/\\n/g, '\n').replace(/\\[“”‘’]/g, y => y.slice(1)); const qs = [...t.matchAll(/"questions"\s*:\s*\[([^\]]*)\]/g)].flatMap(q => [...q[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(x => un(x[1]))); return { text: un(m[1]), questions: qs }; }
+  return null;
+}
+// A reply that arrived as raw JSON (or with a stray "Correction:" line) is shown as plain words.
+function cleanMsg(t){ t = String(t || ''); if (/^\s*(```\w*\s*)?\{\s*"text"/.test(t)) { const o = parseJSONish(t); if (o && o.text) return { text: String(o.text), questions: Array.isArray(o.questions) ? o.questions : [] }; } return { text: t.replace(/\n*Correction:[\s\S]*$/i, '').trim(), questions: null }; }
 function entryFull(e){ const base = entryText(e); const c = (e.convo || []).map(m => (m.who === 'me' ? 'Writer replied: ' : 'Mr Journal: ') + m.text).join('\n'); return c ? base + '\n\n' + c : base; }
 function entryText(e){ return (e.blocks || []).filter(b => b.text.trim()).map(b => (qt(b) ? `${qt(b)}\n` : '') + MK.strip(b.text).trim()).join('\n\n'); }
 function renderReflect(){
@@ -573,7 +614,7 @@ function paint(r){
     const more = (r.deeper || []).map(d => `<div class="deep"><p>${esc(d.text)}</p>${d.question ? `<p class="rq">${esc(d.question)}</p>` : ''}</div>`).join('');
     const canGo = SAMPLE && r.question && (r.deeper || []).length < 3 && !(r.deeper || []).some(d => !d.question);
     const qs = (r.questions && r.questions.length ? r.questions : (r.question ? [r.question] : []));
-    $('#rBody').innerHTML = `${esc(r.text).split(/\n\n+/).map(p => `<p>${p}</p>`).join('')}${qs.map(q => `<p class="rq">${esc(q)}</p>`).join('')}${more}${canGo ? `<button class="btn ghost deepbtn" id="goDeeper" type="button">Go deeper ↓</button>` : ''}${convoHTML()}`;
+    $('#rBody').innerHTML = `${esc(cleanMsg(r.text).text).split(/\n\n+/).map(p => `<p>${p}</p>`).join('')}${qs.map(q => `<p class="rq">${esc(q)}</p>`).join('')}${more}${canGo ? `<button class="btn ghost deepbtn" id="goDeeper" type="button">Go deeper ↓</button>` : ''}${convoHTML()}`;
     if ($('#goDeeper')) $('#goDeeper').onclick = goDeeper;
     wireReply();
     return; }
@@ -585,7 +626,7 @@ function convoHTML(){
   const e = S.entries[editing]; const c = e.convo || [];
   const rows = c.map(m => m.who === 'me'
     ? `<div class="cv me"><span class="cvl">You</span><p>${esc(m.text).replace(/\n/g, '<br>')}</p></div>`
-    : `<div class="cv mrr">${esc(m.text).split(/\n\n+/).map(p => `<p>${p}</p>`).join('')}${(m.questions || []).map(q => `<p class="rq">${esc(q)}</p>`).join('')}</div>`).join('');
+    : (c => `<div class="cv mrr">${esc(c.text).split(/\n\n+/).map(p => `<p>${p}</p>`).join('')}${((m.questions && m.questions.length) ? m.questions : (c.questions || [])).map(q => `<p class="rq">${esc(q)}</p>`).join('')}</div>`)(cleanMsg(m.text))).join('');
   const box = SAMPLE ? `<div class="replybox"><label class="cvl" for="replyIn">Your reply</label><textarea id="replyIn" rows="2" placeholder="Answer a question, push back, or ask him something…"></textarea><div class="row" style="justify-content:flex-end"><button class="btn pen" id="replySend" type="button" disabled>Reply</button></div></div>` : '';
   return rows + box;
 }
@@ -615,8 +656,8 @@ async function sendReply(){
   ].join('\n');
   try {
     const d = await SAMPLE.json(prompt, { modelTier: 'default', cache: false });
-    const qs = (Array.isArray(d.questions) ? d.questions : []).map(q => String(q).slice(0, 300)).filter(Boolean).slice(0, 1);
-    e.convo.push({ who: 'mr', text: String(d.text || '').slice(0, 1600), questions: qs, at: Date.now() }); e.updatedAt = Date.now();
+    const cm = cleanMsg(d.text); const qs = (Array.isArray(d.questions) && d.questions.length ? d.questions : (cm.questions || [])).map(q => String(q).slice(0, 300)).filter(Boolean).slice(0, 1);
+    e.convo.push({ who: 'mr', text: cm.text.slice(0, 1600), questions: qs, at: Date.now() }); e.updatedAt = Date.now();
     syncEntry(editing); paint(r);
     const last = document.querySelector('#rBody .cv.mrr:last-of-type'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
