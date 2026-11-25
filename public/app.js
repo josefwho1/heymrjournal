@@ -898,7 +898,7 @@ function setReminder(added){ const tz = (() => { try { return Intl.DateTimeForma
   S.answers.reminder = { time: rTime, added: added || (S.answers.reminder && S.answers.reminder.time === rTime ? S.answers.reminder.added : null) || null, tz, at: Date.now() }; syncProfile(); }
 function firstAt(){ const [h, m] = rTime.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); return d; }
 const stamp = d => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
-const RM_TITLE = 'Mr. Journal time', RM_URL = 'https://heymrjournal.com/app', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com/app';
+const RM_TITLE = 'Journaling', RM_URL = 'https://heymrjournal.com/app', RM_DESC = 'Have you done your entry today? A few minutes is all it takes. https://heymrjournal.com/app';
 $('#rmApple').onclick = () => { if (!rTime) return; const d = firstAt(), e = new Date(d.getTime() + 10 * 60000);
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mr Journal//Reminder//EN', 'BEGIN:VEVENT', `UID:mrjournal-${Date.now()}@heymrjournal.com`, `DTSTAMP:${stamp(new Date())}`,
     `DTSTART:${stamp(d)}`, `DTEND:${stamp(e)}`, 'RRULE:FREQ=DAILY', `SUMMARY:${RM_TITLE}`, `DESCRIPTION:${RM_DESC}`, 'URL:https://heymrjournal.com/app', 'LOCATION:https://heymrjournal.com/app',
