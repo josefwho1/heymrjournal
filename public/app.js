@@ -141,6 +141,7 @@ function ptext(pid){ if (!pid) return ''; const p = PMAP[pid]; if (p) return typ
 // Before an account exists, S lives in this browser's localStorage only.
 // After sign-up, S is encrypted in the browser (AES-GCM, key never leaves the device) and only the ciphertext is saved online.
 const ANON_KEY = 'hmj-draft';
+try { if (new URLSearchParams(location.search).get('subscribed')) { localStorage.setItem('hmj-subscribed', '1'); history.replaceState(null, '', location.pathname); } } catch(e){}
 try { const iv = new URLSearchParams(location.search).get('invite'); if (iv) { localStorage.setItem('hmj-invite', iv.toUpperCase()); history.replaceState(null, '', location.pathname); } } catch(e){}
 let S = loadAnon() || { step: 'name', entries: {}, votes: {}, answers: {} };
 function loadAnon(){ try { return JSON.parse(store.get(ANON_KEY) || 'null'); } catch(e) { return null; } }
@@ -387,6 +388,7 @@ async function signOut(){ try { await pushNow(); } catch(e){} await keyClear(); 
 let cur = null;
 const TRANSIENT = ['signin', 'code', 'unlock', 'recovery', 'newpw', 'settings'];
 function show(name){
+  if (SIGNED && store.get('hmj-subscribed')) { store.del('hmj-subscribed'); S.free = false; S.keepGoing = true; S.pilotDone = true; S.subscribedAt = S.subscribedAt || today(); saveLocal(); setTimeout(() => toast('Welcome, founding member. Mr. Journal is back.'), 300); if (name === 'pilotend' || name === 'offer' || name === 'freeok') name = 'home'; }
   cur = name; if (!TRANSIENT.includes(name)) { S.step = name; if (name !== 'account') saveLocal(); }
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
   $('#cfoot').hidden = name !== 'compose';
@@ -416,7 +418,7 @@ function pickPrompt(exclude = []){
   // first question ever: easy and time-aware
   if (!n && !exclude.length && !Object.keys(S.entries).some(d => d !== editing)) return 'g01';
   // Mr Journal's own follow-up from their last reflection opens the day once they're past the first couple of entries
-  if (!exclude.length && S.nextQ && S.nextQ.id && !seen.has(S.nextQ.id) && n >= 2) return S.nextQ.id;
+  if (!S.free && !exclude.length && S.nextQ && S.nextQ.id && !seen.has(S.nextQ.id) && n >= 2) return S.nextQ.id;
   const liked = {}; Object.entries(S.votes || {}).forEach(([k, v]) => { const p = PMAP[k]; if (p && v.v === 1) liked[p.topic] = (liked[p.topic] || 0) + 1; });
   let pool = PROMPTS.filter(p => !seen.has(p.id) && (S.votes[p.id]?.v || 0) !== -1 && p.d <= cap);
   if (!pool.length) pool = PROMPTS.filter(p => !exclude.includes(p.id) && (S.votes[p.id]?.v || 0) !== -1);
@@ -442,6 +444,7 @@ const ICON = {
   shuf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
 };
 function renderCompose(){
+  $('#finish').hidden = !!S.free;
   const e = S.entries[editing];
   e.blocks = e.blocks.filter((b, k, a) => b.text.trim() || k === a.length - 1); if (!e.blocks.length) e.blocks = [{ pid: pickPrompt(), text: '' }]; secs = e.seconds || 0;
   $('#cDate').textContent = nice(editing) + (editing === today() ? '' : '');
@@ -472,7 +475,7 @@ function clockShow(){ const m = Math.floor(secs / 60), s = secs % 60; $('#clockT
 /* follow-up questions while writing: after a pause, Clive offers one question built on what they just wrote */
 let fT, fBusy = false;
 async function suggestFollow(i, ask = false){
-  const e = S.entries[editing]; if (!e || cur !== 'compose' || !SIGNED || fBusy) return;
+  const e = S.entries[editing]; if (!e || cur !== 'compose' || !SIGNED || fBusy || S.free) return;
   const b = e.blocks[i]; if (!b || i !== e.blocks.length - 1 || b.fdis) return;
   const n = words(b.text); if ((e.follows || 0) >= 3 || CRISIS_RE.test(b.text)) return;
   if (!ask && (e.fOffered ? (n < 10 || (b.fat && n < b.fat + 15)) : n < 25)) return;
@@ -656,6 +659,7 @@ function surveyLine(){ const a = S.answers || {}; const why = [].concat(a.why ||
 async function reflect(){
   const e = S.entries[editing], text = entryText(e);
   if (!SIGNED) { pendingReflect = true; show('account'); return; }
+  if (S.free) { $('#rBody').innerHTML = `<p class="wait">Your entry is saved. Want to see what Mr. Journal thinks? <button class="link" type="button" id="rSub">Subscribe for $5 a month</button></p>`; $('#rSub').onclick = goSubscribe; return; }
   thinking(true);
   const stats = runStats(), n = totalWords(e), NC = nudgeContext();
   const prompt = [
@@ -787,6 +791,7 @@ function renderSettings(){
   $('#stEmail').textContent = SIGNED && USER ? USER.email : 'Not signed in yet';
   const r = S.answers && S.answers.reminder; $('#stRemind').textContent = r && r.time ? 'Every day at ' + fmtT(r.time) : 'Off';
   $('#stOut').hidden = !SIGNED;
+  $('#stPlanRow').hidden = !SIGNED || !S.pilotDone; $('#stPlan').textContent = S.free ? 'Free: write and keep your journal' : 'Founding member'; $('#stSub').hidden = !S.free;
 }
 $('#stBack').onclick = () => show(setBack === 'compose' && editing ? 'compose' : (setBack || 'home'));
 $('#stOut').onclick = signOut;
@@ -811,7 +816,7 @@ $('#stExport').onclick = () => { const t = exportText(), a = document.createElem
   a.download = `mr-journal-${(S.name || 'journal').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${today()}.txt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('Your journal is downloading.'); };
 // "I'm new here": wipe everything this browser holds (any session, stored key, unsaved draft) and start completely fresh
 $('#inNew').onclick = async () => { try { await sb.auth.signOut(); } catch(e){} await keyClear();
-  ['hmj-draft', 'hmj-forgot', 'hmj-invite', 'fj-state'].forEach(k => store.del(k));
+  ['hmj-draft', 'hmj-forgot', 'hmj-invite', 'hmj-subscribed', 'fj-state'].forEach(k => store.del(k));
   SIGNED = false; DEK = null; USER = null; editing = null; pendingReflect = false; hq = null; S = { step: 'name', entries: {}, votes: {}, answers: {} };
   $('#nameIn').value = ''; show('name'); };
 
@@ -856,12 +861,18 @@ async function saveFeedback(extra = {}){
 }
 // Founding-member checkout: paste the Stripe Payment Link here. Empty = old behaviour (just records a yes).
 const PAY_URL = 'https://buy.stripe.com/28E7sL2BA27Y0cF2SW4Vy02';
-$('#ofYes').onclick = async () => {
-  await saveFeedback({ keep: true }); S.pilotDone = true; S.keepGoing = true; saveLocal();
-  if (PAY_URL) { const u = new URL(PAY_URL); if (USER) { u.searchParams.set('client_reference_id', USER.id); if (USER.email) u.searchParams.set('prefilled_email', USER.email); } window.open(u.toString(), '_blank', 'noopener'); }
-  toast('Welcome aboard. Keep writing.'); show('home'); };
+// Subscribing: until Stripe sends them back to /app?subscribed=1, they're on the free plan.
+async function goSubscribe(){
+  S.pilotDone = true; if (S.free === undefined) S.free = true; saveLocal(); try { await pushNow(); } catch(e){}
+  const u = new URL(PAY_URL); if (USER) { u.searchParams.set('client_reference_id', USER.id); if (USER.email) u.searchParams.set('prefilled_email', USER.email); }
+  location.href = u.toString();
+}
+$('#ofYes').onclick = async () => { await saveFeedback({ keep: true }); goSubscribe(); };
 if (PAY_URL) { $('#ofNote').textContent = 'Payment is handled securely by Stripe. Cancel any time. Your journal stays yours either way.'; $('#ofYes').textContent = 'Become a founding member'; }
-$('#ofNo').onclick = async () => { await saveFeedback({ keep: false }); S.pilotDone = true; saveLocal(); show('home'); };
+$('#ofNo').onclick = async () => { await saveFeedback({ keep: false }); S.pilotDone = true; S.free = true; saveLocal(); show('freeok'); };
+$('#fkGo').onclick = () => show('home');
+$('#fkSub').onclick = goSubscribe;
+$('#stSub').onclick = goSubscribe;
 
 /* moments: quiet milestones from Clive */
 function moment(){
