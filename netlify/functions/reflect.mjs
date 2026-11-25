@@ -11,6 +11,8 @@ const BRIEF = "You are TherAIpist, known in the app as Mr Journal (your friends 
 // Extra threads for the owner's own account only (set OWNER_EMAIL in Netlify).
 // Follow-up questions asked while someone is writing: small, fast and cheap.
 const FOLLOW_MODEL = process.env.FOLLOW_MODEL || 'claude-haiku-5-5';
+// Per-person daily caps (UTC day). Far above normal use; they stop a bug or a heavy user from running up costs.
+const CAPS = { reflect: Number(process.env.CAP_REFLECT || 6), follow: Number(process.env.CAP_FOLLOW || 20) };
 const FOLLOW_SYSTEM = `You are Mr Journal (friends call you Clive), a calm, warm journalling companion who works like a mirror. While someone is mid-entry, you offer ONE short follow-up question that helps them go one step deeper into what they just wrote.
 Rules:
 - Build directly on their own words: a detail they mentioned, a feeling they named, something they skipped past, or what happened next.
@@ -52,6 +54,19 @@ export default async (req) => {
   const prompt = typeof body.prompt === 'string' ? body.prompt : '';
   const name = String(body.name || 'the writer').replace(/[^\p{L}\p{N} .'-]/gu, '').slice(0, 40) || 'the writer';
   if (!prompt || prompt.length > 80000) return json({ error: 'bad_request' }, 400);
+
+  // 3b. per-person daily cap (skipped for ALLOWED_EMAILS; if the usage table is missing, it lets the request through)
+  const kind = body.mode === 'follow' ? 'follow' : 'reflect';
+  if (!allow.includes(email)) {
+    const h = { authorization: auth, apikey: SUPABASE_KEY };
+    const since = new Date().toISOString().slice(0, 10) + 'T00:00:00Z';
+    try {
+      const c = await fetch(`${SUPABASE_URL}/rest/v1/ai_usage?select=id&kind=eq.${kind}&created_at=gte.${since}`, { method: 'HEAD', headers: { ...h, prefer: 'count=exact' } });
+      const n = c.ok ? Number((c.headers.get('content-range') || '').split('/')[1]) : NaN;
+      if (n >= CAPS[kind]) return json({ error: 'daily_limit' }, 429);
+      if (c.ok) await fetch(`${SUPABASE_URL}/rest/v1/ai_usage`, { method: 'POST', headers: { ...h, 'content-type': 'application/json', prefer: 'return=minimal' }, body: JSON.stringify({ kind }) });
+    } catch {}
+  }
 
   if (body.mode === 'follow') {
     let fr;

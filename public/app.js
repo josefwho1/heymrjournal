@@ -218,7 +218,7 @@ const SAMPLE = {
     const call = () => fetch('/api/reflect', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t }, body: JSON.stringify({ name: S.name || '', prompt, mode: opts.mode || 'reflect' }) });
     let r; try { r = await call(); } catch (e) { r = { status: 599 }; }
     if (r.status >= 500) { await new Promise(res => setTimeout(res, 1500)); try { r = await call(); } catch (e) { r = { status: 599, ok: false }; } } // one quiet retry
-    if (r.status === 429) throw { code: 'rate_limited' };
+    if (r.status === 429) { let j = {}; try { j = await r.json(); } catch (e) {} throw { code: j.error === 'daily_limit' ? 'daily_limit' : 'rate_limited' }; }
     if (r.status === 403) throw { code: 'not_invited' };
     if (!r.ok) throw { code: 'error' };
     const d = await r.json(); if (!d || !d.json) throw { code: 'error' }; return d.json;
@@ -617,7 +617,7 @@ async function sendReply(){
     syncEntry(editing); paint(r);
     const last = document.querySelector('#rBody .cv.mrr:last-of-type'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
-    wait.textContent = err && err.code === 'rate_limited' ? 'Too many requests just now. Your reply is saved; try again in a minute.' : 'Couldn\u2019t answer just now. Your reply is saved.';
+    wait.textContent = err && err.code === 'daily_limit' ? 'That’s plenty of questions for today. Keep writing; I’ll have more tomorrow.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your reply is saved; try again in a minute.' : 'Couldn\u2019t answer just now. Your reply is saved.';
   }
 }
 function runStats(){
@@ -649,7 +649,7 @@ async function goDeeper(){
     r.deeper = (r.deeper || []).concat({ text: String(d.text || '').slice(0, 1200), question: String(d.question || '').slice(0, 300), at: Date.now() });
     syncEntry(editing); paint(r);
     const last = document.querySelector('#rBody .deep:last-of-type'); if (last) last.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } catch (err) { btn.disabled = false; btn.textContent = err && err.code === 'rate_limited' ? 'Too many requests. Try again in a minute' : 'Couldn\u2019t go deeper just now. Try again'; }
+  } catch (err) { btn.disabled = false; btn.textContent = err && err.code === 'daily_limit' ? 'That’s plenty for today' : err && err.code === 'rate_limited' ? 'Too many requests. Try again in a minute' : 'Couldn\u2019t go deeper just now. Try again'; }
 }
 function surveyLine(){ const a = S.answers || {}; const why = [].concat(a.why || []), tp = [].concat(a.topics || []).map(k => (TOPICS.find(t => t[0] === k) || [k, k])[1]);
   return (why.length || tp.length) ? `- What brought them here: ${why.join(', ') || 'not said'}. What they want to write about: ${tp.join(', ') || 'not said'}. Use this only as gentle context.` : ''; }
@@ -707,7 +707,7 @@ async function reflect(){
     thinking(false); $('#rSays').textContent = 'Hmm.';
     if (err && err.code === 'not_invited') { $('#rBody').innerHTML = `<p class="wait">Reflections are for pilot members. Enter your invite code to unlock them.</p><form id="joinForm" class="row"><input class="field" id="joinIn" placeholder="Invite code" autocapitalize="characters" style="max-width:240px;margin:0"><button class="btn pen" type="submit">Join</button></form>`;
       $('#joinForm').onsubmit = async ev => { ev.preventDefault(); const { data } = await sb.rpc('redeem_invite', { p_code: $('#joinIn').value }); if (data) { toast('You’re in.'); reflect(); } else toast('That code isn’t valid or has been used up.'); }; return; }
-    $('#rBody').innerHTML = `<p class="wait">${err && err.code === 'not_invited' ? 'Reflections are open to pilot testers only. Ask Josef to add your email.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your entry is safe; try again in a minute.' : 'I couldn’t reflect on this just now. Your entry is safe.'}</p>`;
+    $('#rBody').innerHTML = `<p class="wait">${err && err.code === 'not_invited' ? 'Reflections are open to pilot testers only. Ask Josef to add your email.' : err && err.code === 'daily_limit' ? 'You’ve had a lot of reflections today, so I’m resting until tomorrow. Your entry is safe.' : err && err.code === 'rate_limited' ? 'Too many requests just now. Your entry is safe; try again in a minute.' : 'I couldn’t reflect on this just now. Your entry is safe.'}</p>`;
   }
 }
 $('#rBack').onclick = () => show('compose');
