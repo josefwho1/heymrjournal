@@ -492,8 +492,9 @@ function blankOffer(i){
 function keepCaret(){
   const sel = getSelection(); if (!sel || !sel.rangeCount) return;
   const r = sel.getRangeAt(0).cloneRange(); r.collapse(false); let rect = r.getClientRects()[0];
-  if (!rect) { const n = sel.anchorNode; const el = n && (n.nodeType === 1 ? n : n.parentElement); if (!el) return; rect = el.getBoundingClientRect(); }
-  const vh = (window.visualViewport && window.visualViewport.height) || innerHeight; const foot = document.querySelector('#s-compose .cfoot');
+  if (!rect) { const n = sel.anchorNode; let el = n && (n.nodeType === 1 ? (n.childNodes[sel.anchorOffset - 1] || n.childNodes[sel.anchorOffset] || n) : n.parentElement); if (el && el.nodeType === 3) { const rr = document.createRange(); rr.selectNodeContents(el); rect = rr.getBoundingClientRect(); } else if (el && el.getBoundingClientRect) rect = el.getBoundingClientRect(); }
+  if (!rect || (!rect.top && !rect.bottom)) { const a = document.activeElement; if (a && a.classList && a.classList.contains('wr')) rect = a.getBoundingClientRect(); else return; }
+  const vh = (window.visualViewport && window.visualViewport.height) || innerHeight; const foot = document.getElementById('cfoot');
   const limit = vh - (foot ? foot.offsetHeight : 0) - 48; if (rect.bottom > limit) window.scrollBy({ top: rect.bottom - limit, behavior: 'smooth' });
 }
 /* follow-up questions while writing: after a pause, Clive offers one question built on what they just wrote */
