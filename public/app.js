@@ -451,17 +451,16 @@ function renderCompose(){
   $('#cDate').textContent = nice(editing) + (editing === today() ? '' : '');
   $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = qt(b) || null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
     return `<div class="pblock${p ? '' : ' free'}" data-i="${i}">${p && last ? `<div class="says">${MR}</div>` : ''}${p ? `<div class="phead"><h2 class="prompt">${esc(p)}</h2><button type="button" class="px" aria-label="Remove this question and write freely" title="Remove question">${ICON.x}</button></div>
-      <div class="pacts"><button type="button" class="pu ic${v.v === 1 ? ' on' : ''}" aria-label="Thumbs up" aria-pressed="${v.v === 1}">${ICON.up}</button><button type="button" class="pdn ic${v.v === -1 ? ' on' : ''}" aria-label="Thumbs down" aria-pressed="${v.v === -1}">${ICON.down}</button>${last ? `<button type="button" class="pn" aria-label="Add the next question below">${ICON.next}<span>Next</span></button>` : ''}</div>` : (last ? `<div class="pacts"><button type="button" class="pn" aria-label="Add a question below">${ICON.next}<span>Add a question</span></button></div>` : '')}
-      ${!p && last && !b.text.trim() ? `<div class="askq"><button type="button" class="chip qask">Give me a question</button></div>` : ''}<div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely, or ask Clive for a question…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
+      <div class="pacts"><button type="button" class="pu ic${v.v === 1 ? ' on' : ''}" aria-label="Thumbs up" aria-pressed="${v.v === 1}">${ICON.up}</button><button type="button" class="pdn ic${v.v === -1 ? ' on' : ''}" aria-label="Thumbs down" aria-pressed="${v.v === -1}">${ICON.down}</button>${last ? `<button type="button" class="pn" aria-label="Add the next question below">${ICON.next}<span>Next</span></button>` : ''}</div>` : (last ? `<div class="pacts"><button type="button" class="pn" aria-label="Get a question from Clive">${ICON.next}<span>${b.text.trim() ? 'Add a question' : 'Give me a question'}</span></button></div>` : '')}
+      <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
-    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 20000); clearTimeout(bT); const aq = el.querySelector('.askq'); if (aq && t.value.trim()) aq.remove(); const bq = el.querySelector('.fsug.blank'); if (bq) bq.remove(); requestAnimationFrame(keepCaret); });
+    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 20000); clearTimeout(bT); if (!e.blocks[i].pid) { const ps = el.querySelector('.pn span'); if (ps) ps.textContent = t.value.trim() ? 'Add a question' : 'Give me a question'; } const bq = el.querySelector('.fsug.blank'); if (bq) bq.remove(); requestAnimationFrame(keepCaret); });
     const pu = el.querySelector('.pu'), pdn = el.querySelector('.pdn');
     const setV = val => { const now = (S.votes[e.blocks[i].pid] || {}).v || 0; vote(e.blocks[i].pid, now === val ? 0 : val); const v2 = S.votes[e.blocks[i].pid].v; pu.classList.toggle('on', v2 === 1); pu.setAttribute('aria-pressed', v2 === 1); pdn.classList.toggle('on', v2 === -1); pdn.setAttribute('aria-pressed', v2 === -1); };
     if (pu) pu.onclick = () => setV(1); if (pdn) pdn.onclick = () => setV(-1);
     const px = el.querySelector('.px'); if (px) px.onclick = () => { if (!e.blocks[i].text.trim() && e.blocks.length > 1) e.blocks.splice(i, 1); else { e.blocks[i].pid = null; delete e.blocks[i].q; } saveLocal(); renderCompose(); };
-    const pn = el.querySelector('.pn'); if (pn) pn.onclick = () => addNext();
-    const qa = el.querySelector('.qask'); if (qa) qa.onclick = () => askQuestion(i); });
+    const pn = el.querySelector('.pn'); if (pn) pn.onclick = () => (!e.blocks[i].pid && !e.blocks[i].text.trim()) ? askQuestion(i) : addNext(); });
   clearTimeout(bT); const lb = e.blocks[e.blocks.length - 1];
   if (lb && !lb.pid && !lb.text.trim()) bT = setTimeout(() => blankOffer(e.blocks.length - 1), 15000);
   counts(); clockShow();
@@ -484,7 +483,7 @@ function blankOffer(i){
   const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
   const box = document.createElement('div'); box.className = 'fsug quiet blank';
   box.innerHTML = `<div class="fact"><span class="flab2">Clive</span><span class="fq">Blank page? I can give you a question to start.</span><button type="button" class="chip fyes">Yes please</button><button type="button" class="link fno">I'll write freely</button></div>`;
-  el.querySelector('.wr').before(box); const aq = el.querySelector('.askq'); if (aq) aq.remove();
+  el.querySelector('.wr').before(box);
   box.querySelector('.fyes').onclick = () => askQuestion(i);
   box.querySelector('.fno').onclick = () => { box.remove(); const w = el.querySelector('.wr'); if (w) w.focus(); };
 }
