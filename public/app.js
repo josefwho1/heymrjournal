@@ -431,7 +431,8 @@ function pickPrompt(exclude = []){
 }
 function openDay(d, fromPrompt){
   editing = d;
-  if (!S.entries[d]) S.entries[d] = { blocks: [{ pid: fromPrompt || pickPrompt(), text: '' }], seconds: 0, createdAt: Date.now(), updatedAt: Date.now() };
+  // New entries start as free writing; Clive offers a question after 15s on a blank page, or on tap.
+  if (!S.entries[d]) S.entries[d] = { blocks: [{ pid: fromPrompt || null, text: '' }], seconds: 0, createdAt: Date.now(), updatedAt: Date.now() };
   else if (fromPrompt) S.entries[d].blocks.push({ pid: fromPrompt, text: '' });
   show('compose');
 }
@@ -446,20 +447,23 @@ const ICON = {
 function renderCompose(){
   $('#finish').hidden = !!S.free;
   const e = S.entries[editing];
-  e.blocks = e.blocks.filter((b, k, a) => b.text.trim() || k === a.length - 1); if (!e.blocks.length) e.blocks = [{ pid: pickPrompt(), text: '' }]; secs = e.seconds || 0;
+  e.blocks = e.blocks.filter((b, k, a) => b.text.trim() || k === a.length - 1); if (!e.blocks.length) e.blocks = [{ pid: null, text: '' }]; secs = e.seconds || 0;
   $('#cDate').textContent = nice(editing) + (editing === today() ? '' : '');
   $('#blocks').innerHTML = e.blocks.map((b, i) => { const p = qt(b) || null; const v = (b.pid && S.votes[b.pid]) || {}; const last = i === e.blocks.length - 1;
     return `<div class="pblock${p ? '' : ' free'}" data-i="${i}">${p && last ? `<div class="says">${MR}</div>` : ''}${p ? `<div class="phead"><h2 class="prompt">${esc(p)}</h2><button type="button" class="px" aria-label="Remove this question and write freely" title="Remove question">${ICON.x}</button></div>
       <div class="pacts"><button type="button" class="pu ic${v.v === 1 ? ' on' : ''}" aria-label="Thumbs up" aria-pressed="${v.v === 1}">${ICON.up}</button><button type="button" class="pdn ic${v.v === -1 ? ' on' : ''}" aria-label="Thumbs down" aria-pressed="${v.v === -1}">${ICON.down}</button>${last ? `<button type="button" class="pn" aria-label="Add the next question below">${ICON.next}<span>Next</span></button>` : ''}</div>` : (last ? `<div class="pacts"><button type="button" class="pn" aria-label="Add a question below">${ICON.next}<span>Add a question</span></button></div>` : '')}
-      <div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
+      ${!p && last && !b.text.trim() ? `<div class="askq"><button type="button" class="chip qask">Give me a question</button></div>` : ''}<div class="wr rich" spellcheck="true" data-placeholder="${p ? 'Start writing…' : 'Write freely, or ask Clive for a question…'}" aria-label="${esc(p || 'Free writing')}">${MK.render(b.text)}</div></div>`; }).join('');
   document.querySelectorAll('.pblock').forEach(el => { const i = +el.dataset.i, t = makeRich(el.querySelector('.wr'));
     size(t);
-    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), e.fOffered ? 15000 : 10000); });
+    t.addEventListener('input', () => { if (!e.blocks[i].q && e.blocks[i].pid) e.blocks[i].q = ptext(e.blocks[i].pid); e.blocks[i].text = t.value; e.updatedAt = Date.now(); lastType = Date.now(); size(t); counts(); queue(); clearTimeout(fT); if (i === e.blocks.length - 1) fT = setTimeout(() => suggestFollow(i), 20000); clearTimeout(bT); const aq = el.querySelector('.askq'); if (aq && t.value.trim()) aq.remove(); const bq = el.querySelector('.fsug.blank'); if (bq) bq.remove(); requestAnimationFrame(keepCaret); });
     const pu = el.querySelector('.pu'), pdn = el.querySelector('.pdn');
     const setV = val => { const now = (S.votes[e.blocks[i].pid] || {}).v || 0; vote(e.blocks[i].pid, now === val ? 0 : val); const v2 = S.votes[e.blocks[i].pid].v; pu.classList.toggle('on', v2 === 1); pu.setAttribute('aria-pressed', v2 === 1); pdn.classList.toggle('on', v2 === -1); pdn.setAttribute('aria-pressed', v2 === -1); };
     if (pu) pu.onclick = () => setV(1); if (pdn) pdn.onclick = () => setV(-1);
     const px = el.querySelector('.px'); if (px) px.onclick = () => { if (!e.blocks[i].text.trim() && e.blocks.length > 1) e.blocks.splice(i, 1); else { e.blocks[i].pid = null; delete e.blocks[i].q; } saveLocal(); renderCompose(); };
-    const pn = el.querySelector('.pn'); if (pn) pn.onclick = () => addNext(); });
+    const pn = el.querySelector('.pn'); if (pn) pn.onclick = () => addNext();
+    const qa = el.querySelector('.qask'); if (qa) qa.onclick = () => askQuestion(i); });
+  clearTimeout(bT); const lb = e.blocks[e.blocks.length - 1];
+  if (lb && !lb.pid && !lb.text.trim()) bT = setTimeout(() => blankOffer(e.blocks.length - 1), 15000);
   counts(); clockShow();
   const last = $('#blocks .pblock:last-child .wr'); if (last) setTimeout(() => caretToEnd(last), 80);
   clearInterval(tick); tick = setInterval(() => { if (cur !== 'compose') return; if (Date.now() - lastType < 60000) { secs++; e.seconds = secs; } clockShow(); }, 1000);
@@ -472,12 +476,32 @@ function size(t){ return; const sc = window.scrollY; t.style.height = 'auto'; t.
 function totalWords(e){ return (e.blocks || []).reduce((s, b) => s + words(b.text), 0) + (e.convo || []).filter(m => m.who === 'me').reduce((s, m) => s + words(m.text), 0); }
 function counts(){ const n = totalWords(S.entries[editing]); $('#cWords').textContent = `${n} word${n === 1 ? '' : 's'}`; $('#finish').disabled = n < 1; $('#saveBtn').disabled = n < 1; const r = S.entries[editing].reflection; $('#finish').textContent = r && r.len === entryText(S.entries[editing]).length ? 'View reflection' : 'Reflect'; }
 function clockShow(){ const m = Math.floor(secs / 60), s = secs % 60; $('#clockT').textContent = `${m}:${String(s).padStart(2, '0')}`; $('#clock').classList.toggle('run', Date.now() - lastType < 60000); }
+/* blank page: a question on tap, or Clive offers one after 15 seconds of nothing */
+let bT;
+function askQuestion(i){ const e = S.entries[editing]; if (!e || !e.blocks[i]) return; clearTimeout(bT); e.blocks[i].pid = pickPrompt(e.blocks.map(b => b.pid).filter(Boolean)); delete e.blocks[i].q; saveLocal(); renderCompose(); }
+function blankOffer(i){
+  const e = S.entries[editing]; if (!e || cur !== 'compose') return; const b = e.blocks[i]; if (!b || b.pid || b.text.trim()) return;
+  const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
+  const box = document.createElement('div'); box.className = 'fsug quiet blank';
+  box.innerHTML = `<div class="fact"><span class="flab2">Clive</span><span class="fq">Blank page? I can give you a question to start.</span><button type="button" class="chip fyes">Yes please</button><button type="button" class="link fno">I'll write freely</button></div>`;
+  el.querySelector('.wr').before(box); const aq = el.querySelector('.askq'); if (aq) aq.remove();
+  box.querySelector('.fyes').onclick = () => askQuestion(i);
+  box.querySelector('.fno').onclick = () => { box.remove(); const w = el.querySelector('.wr'); if (w) w.focus(); };
+}
+/* keep the line being typed visible above the Save/Reflect bar (and the phone keyboard) */
+function keepCaret(){
+  const sel = getSelection(); if (!sel || !sel.rangeCount) return;
+  const r = sel.getRangeAt(0).cloneRange(); r.collapse(false); let rect = r.getClientRects()[0];
+  if (!rect) { const n = sel.anchorNode; const el = n && (n.nodeType === 1 ? n : n.parentElement); if (!el) return; rect = el.getBoundingClientRect(); }
+  const vh = (window.visualViewport && window.visualViewport.height) || innerHeight; const foot = document.querySelector('#s-compose .cfoot');
+  const limit = vh - (foot ? foot.offsetHeight : 0) - 48; if (rect.bottom > limit) window.scrollBy({ top: rect.bottom - limit, behavior: 'smooth' });
+}
 /* follow-up questions while writing: after a pause, Clive offers one question built on what they just wrote */
 let fT, fBusy = false;
 async function suggestFollow(i, ask = false){
   const e = S.entries[editing]; if (!e || cur !== 'compose' || !SIGNED || fBusy || S.free) return;
   const b = e.blocks[i]; if (!b || i !== e.blocks.length - 1 || b.fdis) return;
-  const n = words(b.text); if ((e.follows || 0) >= 3 || CRISIS_RE.test(b.text)) return;
+  const n = words(b.text); if ((e.follows || 0) >= 5 || CRISIS_RE.test(b.text)) return;
   if (!ask && (e.fOffered ? (n < 10 || (b.fat && n < b.fat + 15)) : n < 25)) return;
   const el = document.querySelector(`.pblock[data-i="${i}"]`); if (!el || el.querySelector('.fsug')) return;
   if (e.fOffered && !ask) {
