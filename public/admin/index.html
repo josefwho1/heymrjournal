@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Mr. Journal · Admin</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#101215;--sheet:#171a1e;--ink:#ebe9e3;--ink-2:#b4b6b8;--ink-3:#7c8187;--rule:#2a2e33;--good:#7fb98a;--warn:#d9a65b;--bad:#d9776b;--bar:#ebe9e3}
+@media (prefers-color-scheme: light){:root{--paper:#eef0ec;--sheet:#f8f9f6;--ink:#16191c;--ink-2:#4a5057;--ink-3:#848a90;--rule:#d9ddd6;--good:#3f7d4c;--warn:#a26a17;--bad:#a8463a;--bar:#16191c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Hanken Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px}
+h1{font:500 30px/1.1 Newsreader,Georgia,serif;margin:0}
+h2{font:600 13px/1 "Hanken Grotesk";letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:36px 0 12px}
+.muted{color:var(--ink-3)}
+button,.chip{font:500 13px "Hanken Grotesk";border:1px solid var(--rule);background:var(--sheet);color:var(--ink);border-radius:999px;padding:7px 14px;cursor:pointer}
+button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+.tile .n{font:500 34px/1.1 Newsreader,Georgia,serif;margin:6px 0 2px}
+.tile .l{font-size:13px;color:var(--ink-2)}
+.tile .s{font-size:12px;color:var(--ink-3)}
+.card{background:var(--sheet);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-weight:600;color:var(--ink-3);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap;cursor:pointer;user-select:none}
+td{padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid var(--rule);color:var(--ink-2)}
+.ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.bar{display:inline-block;height:6px;border-radius:3px;background:var(--bar);vertical-align:middle;margin-right:6px}
+.barbg{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--rule);vertical-align:middle;position:relative}
+.barbg i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--bar)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+#chart svg{display:block;width:100%;height:auto}
+.empty{padding:24px;text-align:center;color:var(--ink-3)}
+.gate{max-width:420px;margin:18vh auto;text-align:center}
+.gate a{color:var(--ink)}
+.small{font-size:12px}
+.wrapcell{max-width:280px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="gate" id="gate"><h1>Mr. Journal admin</h1><p class="muted" id="gateMsg">Loading…</p></div>
+  <div id="dash" hidden>
+    <header>
+      <div><h1>Mr. Journal admin</h1><div class="muted small" id="stamp"></div></div>
+      <div class="row" style="margin:0"><label class="small muted"><input type="checkbox" id="hideTest" checked> Hide test accounts</label><button id="refresh" type="button">Refresh</button></div>
+    </header>
+
+    <div class="tiles" id="tiles"></div>
+
+    <h2>People writing each day · last 21 days</h2>
+    <div class="card" id="chart"></div>
+
+    <h2>Members</h2>
+    <div class="row" id="groups"></div>
+    <div class="card"><table id="members"></table></div>
+
+    <h2>Day-14 feedback</h2>
+    <div class="card"><table id="feedback"></table></div>
+
+    <h2>Waitlist</h2>
+    <div class="row"><button id="copyEmails" type="button">Copy all emails</button><span class="muted small" id="copied"></span></div>
+    <div class="card"><table id="waitlist"></table></div>
+
+    <h2>Invite codes</h2>
+    <div class="card"><table id="codes"></table></div>
+  </div>
+</div>
+<script src="/supabase.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>
