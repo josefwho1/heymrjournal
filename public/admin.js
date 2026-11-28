@@ -30,13 +30,13 @@ function render(){
   const wroteToday = ms.filter(m => m.last_day === today).length;
   const active = ms.filter(m => m.days_7 >= 3).length, wrote7 = ms.filter(m => m.days_7 > 0).length;
   const v = D.reflection_votes || {}, vt = (v.up || 0) + (v.down || 0);
-  const pilot = ms.filter(m => m.code === 'PILOT'), ten = pilot.filter(m => m.days_written >= 10).length;
+  const pilot = ms.filter(m => m.code === 'PILOT' || m.code === 'HONEST'), ten = pilot.filter(m => m.days_written >= 10).length;
   const paid = (D.feedback || []).filter(f => f.keep_going && !($('#hideTest').checked && isTest(f.email))).length;
   const tiles = [
     ['Weekly active writers', active, `wrote 3+ days of the last 7 · ${wrote7} wrote at all`],
     ['Members', ms.length, (D.codes || []).map(c => `${c.code} ${c.uses}/${c.max_uses}`).join(' · ')],
     ['Wrote today', wroteToday, `of ${ms.length} members`],
-    ['PILOT: 10+ days', ten, `go if 10+ · ${pilot.length} in PILOT`],
+    ['Strangers: 10+ days', ten, `PILOT + HONEST · go if 10+ · ${pilot.length} joined`],
     ['Said yes to $5', paid, 'go if 5+ (confirm in Stripe)'],
     ['Reflections 👍', vt ? Math.round(100 * (v.up || 0) / vt) + '%' : '–', `${v.up || 0} up · ${v.down || 0} down`],
     ['Waitlist', (D.waitlist || []).length, 'emails collected'],
