@@ -995,7 +995,7 @@ $('#rmSkip').onclick = () => { S.answers.reminder = { time: null, added: null, a
 
 /* 7 · home */
 let hq = null;
-function cell(d, label, T){ return `<button type="button" class="sq ${d > T ? 'fut' : hasW(d) ? 'ok' : 'miss'}${d === T ? ' now' : ''}" data-d="${d}" aria-label="${short(d)}: ${d > T ? 'to come' : hasW(d) ? 'written' : 'not written'}" ${d > T ? 'disabled' : ''}>${label}</button>`; }
+function cell(d, label, T){ return `<button type="button" class="sq ${d > T ? 'fut' : hasW(d) ? 'ok' : d === T ? 'fut' : 'miss'}${d === T ? ' now' : ''}" data-d="${d}" aria-label="${short(d)}: ${d > T ? 'to come' : hasW(d) ? 'written' : d === T ? 'today, not written yet' : 'missed'}" ${d > T ? 'disabled' : ''}>${label}</button>`; }
 function challengeDay(T){ const st = S.start || T; return Math.max(1, Math.round((new Date(T + 'T12:00') - new Date(st + 'T12:00')) / 864e5) + 1); }
 const hasW = d => S.entries[d] && totalWords(S.entries[d]) > 0;
 function renderHome(){
